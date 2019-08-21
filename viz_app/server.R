@@ -1,9 +1,6 @@
 library(tidyverse)
 library(eyetrackingR)
 library(ggthemes)
-# library(viridis)
-
-#input <- list(collection = "Eng-NA", corpus = "Clark", child = "Shem", word = "dog")
 
 aoi_data_sample <- read_csv(here::here("demo_data/aoi_data.csv"))
 dataset_sample <- read_csv(here::here("demo_data/dataset.csv"))
@@ -159,7 +156,8 @@ server <- function(input, output, session) {
                 label = "Plotting Window",
                 value = c(window_min(), window_max()),
                 step = 100, 
-                min = floor(window_min()), max=ceiling(window_max()))
+                min = floor(window_min()), 
+                max = ceiling(window_max()))
   })
   
   output$window_selector <- renderUI({
@@ -167,7 +165,8 @@ server <- function(input, output, session) {
                 label = "Analysis Window",
                 value = c(window_min(), window_max()),
                 step = 100, 
-                min = floor(window_min()), max=ceiling(window_max()))
+                min = floor(window_min()), 
+                max = ceiling(window_max()))
   })
   
   # SELECTOR FOR DATASET
@@ -214,13 +213,52 @@ server <- function(input, output, session) {
       geom_vline(xintercept = 0, lty = 2) +
       ylab("Proportion Target Looking") +
       xlab("Time (msec)") +
-      theme_few() +
+      theme_classic() +
       scale_color_solarized() +
       scale_fill_solarized() 
   })
   
   output$onset_plot <- renderPlot({
-    ggplot()
+    means <- aoi_data() %>%
+    # onset_means <- foo %>%
+      group_by(sub_id, trial_id) %>%
+      mutate(t0 = aoi[t == 0]) %>%
+      group_by(t, t0, age_binned, target_label) %>%
+      filter(!is.na(t0), t0 != "other") %>%
+      summarise(prop_looking = mean(aoi != t0 & aoi != "other", na.rm = TRUE), 
+                n = sum(aoi != "other", na.rm = TRUE), 
+                p = sum(aoi != t0 & aoi != "other", na.rm = TRUE),
+                ci_lower = binom::binom.confint(p, n, method = "exact")$lower,
+                ci_upper = binom::binom.confint(p, n, method = "exact")$upper)
+
+    if (input$age_facet) {
+      p <- ggplot(onset_means, 
+                  aes(x = t, y = prop_looking, lty = t0)) + 
+        geom_line(aes(col = age_binned)) 
+      # + 
+      #   geom_ribbon(aes(ymin = ci_lower, ymax = ci_upper,
+      #                   fill = age_binned), alpha = .5) +
+      #   facet_wrap(.~target_label) 
+    } else {
+      p <- ggplot(onset_means, 
+                  aes(x = t, y = prop_looking)) + 
+        geom_line(aes(col = target_label)) 
+      # + 
+      #   geom_ribbon(aes(ymin = ci_lower, ymax = ci_upper,
+      #                   fill = target_label), alpha = .5) +
+      #   facet_wrap(.~age_binned) 
+    }
+    
+    p + 
+      xlim(0, max(onset_means$t)) +
+      geom_hline(yintercept = .5, lty = 2) + 
+      geom_vline(xintercept = 0, lty = 2) +
+      ylab("Proportion Target Looking") +
+      xlab("Time (msec)") +
+      theme_classic()
+    # +
+    #   scale_color_solarized() +
+    #   scale_fill_solarized() 
   })
   
   output$accuracy_plot <- renderPlot({
