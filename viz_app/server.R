@@ -2,6 +2,7 @@ library(tidyverse)
 library(eyetrackingR)
 library(ggthemes)
 library(langcog)
+source(here::here("rt_histogram/rt_helpers.R"))
 
 ci.95 <- function(x) {
   n <- sum(!is.na(x))
@@ -309,7 +310,35 @@ server <- function(input, output, session) {
   })
   
   output$rt_plot <- renderPlot({
-    ggplot()
+
+    rt_result <- aoi_data() %>%
+    # rt_result <- aoi_data %>%
+        group_by(sub_id, trial_id) %>%
+        nest() %>%
+        mutate(rt = purrr::map(data, .f = compute_rt, sampling_rate = 33)) %>%
+        unnest(rt, .drop = T) %>%
+        filter(shift_type %in% c("D-T", "T-D")) %>%
+        left_join(subjects_data(), by = c("sub_id"))
+        # mutate(age_binned = cut(age, 2))
+
+        # Histogram of RTs in peekbank data ----
+        # with requested number of bins and RT filters
+        if (input$age_facet) {
+          p <- rt_result %>%
+            ggplot(aes(x = rt_value, color=age_binned)) +
+            geom_histogram(
+              fill="white",
+              alpha = 0.5,
+              position = "identity") +
+            labs(x = "RT (msec)", y = "Count")
+        } else {
+          p <- ggplot(rt_result,
+                      aes(x = rt_value)) +
+            geom_histogram(
+              fill="white", alpha = 0.4, position ="identity")
+            labs(x = "RT (msec)", y = "Court")
+        }
+    p
   })
 }
 
