@@ -2,6 +2,8 @@ library(tidyverse)
 library(ggthemes)
 library(langcog)
 library(peekbankr)
+library(rlang)
+
 source(here::here("helpers/rt_helpers.R"))
 
 ci.95 <- function(x) {
@@ -27,13 +29,9 @@ if (debug) {
   
   input <- list()
   input$analysis_window_range <- c(250,2250)
-} else if (debug_local) {
-  aoi_data_sample <- read_csv(here::here("demo_data/aoi_data.csv"))
-  dataset_sample <- read_csv(here::here("demo_data/dataset.csv"))
-  subjects_sample <- read_csv(here::here("demo_data/subjects.csv"))
-  trials_sample <- read_csv(here::here("demo_data/trials.csv"))
-  
-}
+} 
+
+debug_local <- TRUE
 
 # MAIN SHINY SERVER
 server <- function(input, output, session) {
@@ -43,19 +41,35 @@ server <- function(input, output, session) {
   # this is inefficient and should be revisited
   
   all_aoi_data <- reactive({
-    get_aoi_data()
+    if (debug_local) {
+      read_csv(here::here("demo_data/aoi_data.csv"))
+    } else {
+      get_aoi_data()
+    }
   })
   
   all_subjects_data <- reactive({
-    get_subjects()
+    if (debug_local) {
+      read_csv(here::here("demo_data/subjects.csv"))
+    } else {
+      get_subjects()
+    }
   })
   
   all_trials_data <- reactive({
-    get_trials()
+    if (debug_local) {
+      read_csv(here::here("demo_data/trials.csv"))
+    } else {
+      get_trials()
+    }
   })
   
   all_datasets <- reactive({
-    get_datasets()
+    if (debug_local) {
+      read_csv(here::here("demo_data/datasets.csv"))
+    } else {
+      get_datasets()
+    }
   })
   
   # ---- reactive parameters 
@@ -84,15 +98,33 @@ server <- function(input, output, session) {
   target_words <- reactive({
     req(all_trials_data())
     
-    c("All", unique(all_trials_data()$target_label))
+    unique(all_trials_data()$target_label)
+  })
+  
+  color_groups <- reactive({
+    if (input$age_colors) {
+      quo(age_binned)
+    } else if (!is.null(input$word)) {
+      quo(target_label)
+    } else {
+      NULL 
+    }
+  })
+  
+  facet_groups <- reactive({
+    if (input$age_colors & !is.null(input$word)) {
+      quo(target_label)
+    } else if (input$age_colors & input$age_nbins > 1) {
+      quo(age_binned)
+    } else {
+      NULL 
+    }
   })
 
   datasets_list <- reactive({
     req(all_datasets())
 
-    print(unique(all_datasets()$lab_dataset_id))
-
-    c("All", unique(all_datasets()$lab_dataset_id))
+    unique(all_datasets()$lab_dataset_id)
   })
   
   # ---- actual restricted data
@@ -111,21 +143,20 @@ server <- function(input, output, session) {
   })
   
   trials_data <- reactive({
-    if (input$word == "All") {
-      all_trials_data() %>%
-        mutate(target_label = "All")
-    } else {
+    if (!is.null(input$word)) {
       all_trials_data() %>%
         filter(target_label %in% input$word)
+    } else {
+      all_trials_data()
     }
   })
   
   datasets <- reactive({
-    if (input$dataset == "All") {
-      all_datasets()
-    } else {
+    if (!is.null(input$dataset)) {
       all_datasets() %>%
         filter(dataset %in% input$dataset)
+    } else {
+      all_datasets()
     }
   })
   
@@ -176,7 +207,7 @@ server <- function(input, output, session) {
   
   # SWITCH FOR AGE DISPLAY
   output$age_facet_selector <- renderUI({
-    prettySwitch("age_facet",
+    prettySwitch("age_colors",
                 label = "Age plotted as colors",
                 value = TRUE)
   })
@@ -185,7 +216,7 @@ server <- function(input, output, session) {
   output$word_selector <- renderUI({
     selectizeInput(inputId = "word",
                    label = "Word",
-                   selected = "All",   
+                   selected = NULL,   
                    choices = target_words(),
                    multiple = TRUE)
   })
@@ -214,7 +245,7 @@ server <- function(input, output, session) {
     selectizeInput(inputId = "dataset",
                    label = "Dataset",
                    choices = datasets_list(),
-                   selected = "All",
+                   selected = NULL,
                    multiple = TRUE)
   })
 
@@ -234,31 +265,42 @@ server <- function(input, output, session) {
                 ci_lower = binom::binom.confint(p, n, method = "bayes")$lower,
                 ci_upper = binom::binom.confint(p, n, method = "bayes")$upper) 
 
-    if (input$age_facet) {
-      p <- ggplot(means, 
-                  aes(x = t, y = prop_looking)) + 
-        geom_rect(xmin = input$analysis_window_range[1],
-                  xmax = input$analysis_window_range[2],
-                  ymin = 0,
-                  ymax = 1, fill = "gray", alpha = .1) +
-        geom_line(aes(col = age_binned)) + 
-        geom_ribbon(aes(ymin = ci_lower, ymax = ci_upper, 
-                        fill = age_binned), alpha = .5) +
-        facet_wrap(.~target_label) 
-    } else {
-      p <- ggplot(means, 
-                  aes(x = t, y = prop_looking)) + 
-        geom_rect(xmin = input$analysis_window_range[1],
-                  xmax = input$analysis_window_range[2],
-                  ymin = 0,
-                  ymax = 1, fill = "gray", alpha = .1) +
-        geom_line(aes(col = target_label)) + 
-        geom_ribbon(aes(ymin = ci_lower, ymax = ci_upper, 
-                        fill = target_label), alpha = .5) +
-        facet_wrap(.~age_binned) 
-    }
+    # if (input$age_colors) {
+    #   p <- ggplot(means, 
+    #               aes(x = t, y = prop_looking)) + 
+    #     geom_rect(xmin = input$analysis_window_range[1],
+    #               xmax = input$analysis_window_range[2],
+    #               ymin = 0,
+    #               ymax = 1, fill = "gray", alpha = .1) +
+    #     geom_line(aes(col = age_binned)) + 
+    #     geom_ribbon(aes(ymin = ci_lower, ymax = ci_upper, 
+    #                     fill = age_binned), alpha = .5) +
+    #     facet_wrap(.~target_label) 
+    # } else {
+    #   p <- ggplot(means, 
+    #               aes(x = t, y = prop_looking)) + 
+    #     geom_rect(xmin = input$analysis_window_range[1],
+    #               xmax = input$analysis_window_range[2],
+    #               ymin = 0,
+    #               ymax = 1, fill = "gray", alpha = .1) +
+    #     geom_line(aes(col = target_label)) + 
+    #     geom_ribbon(aes(ymin = ci_lower, ymax = ci_upper, 
+    #                     fill = target_label), alpha = .5) +
+    #     facet_wrap(.~age_binned) 
+    # }
+    # 
     
-    p + 
+    print 
+    ggplot(means, 
+           aes(x = t, y = prop_looking)) +
+      geom_rect(xmin = input$analysis_window_range[1],
+                xmax = input$analysis_window_range[2],
+                ymin = 0,
+                ymax = 1, fill = "gray", alpha = .1) +
+      geom_line(aes(col = !!(color_groups()))) +
+      geom_ribbon(aes(ymin = ci_lower, ymax = ci_upper,
+                      fill = !!(color_groups())), alpha = .5) +
+      facet_wrap(~!!(facet_groups())) + 
       geom_hline(yintercept = .5, lty = 2) + 
       geom_vline(xintercept = 0, lty = 2) +
       ylab("Proportion Target Looking") +
@@ -283,7 +325,7 @@ server <- function(input, output, session) {
                 ci_upper = mean + ci.95(prop_looking)[2],
                 n = n())
              
-    if (input$age_facet) {
+    if (input$age_colors) {
       p <- ggplot(acc_means, 
                   aes(x = age_binned, y = mean, fill = age_binned)) + 
         geom_bar(stat = "identity") +
@@ -345,15 +387,15 @@ server <- function(input, output, session) {
                 ci_upper = mean + ci.95(rt_value)[2],
                 n = n())
     
-    if (input$age_facet) {
+    if (input$age_colors) {
       p <- ggplot(rt_means,
                   aes(x = age_binned, y = mean, fill = age_binned)) +
-        geom_bar(stat="identity") +
+        geom_bar(stat = "identity") +
         facet_wrap(~target_label)
     } else {
       p <- ggplot(rt_means,
                   aes(x = target_label, y = mean, fill = target_label)) +
-        geom_bar(stat="identity") +
+        geom_bar(stat = "identity") +
         facet_wrap(~age_binned)
     }
     p +
@@ -373,7 +415,7 @@ server <- function(input, output, session) {
 
         # Histogram of RTs in peekbank data ----
         # with requested number of bins and RT filters
-        if (input$age_facet) {
+        if (input$age_colors) {
           p <- rts() %>%
             ggplot(aes(x = rt_value, color = age_binned))
         } else {
@@ -396,7 +438,7 @@ server <- function(input, output, session) {
     
     subinfo() %>% 
       ggplot(aes(x = age, fill = lab_dataset_id)) +
-      geom_histogram() + 
+      geom_histogram(binwidth = 2) + 
       theme_mikabr() +
       scale_fill_solarized(name = "Dataset") +
       xlab("Age (months)") 
