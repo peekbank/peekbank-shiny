@@ -1,5 +1,4 @@
 library(tidyverse)
-# library(eyetrackingR)
 library(ggthemes)
 library(langcog)
 library(peekbankr)
@@ -16,8 +15,7 @@ debug_local <- FALSE
 
 if (debug) {
   aoi_data <- get_aoi_data() %>%
-    mutate(age_binned = 1, 
-           target_label = "all")
+    mutate(age_binned = 1)
   subjects <- get_subjects()
   trials <- get_trials()
   datasets <- get_datasets()
@@ -142,7 +140,7 @@ server <- function(input, output, session) {
   
   rts <- reactive({
     aoi_data_joined() %>%
-      # rts <- aoi_data %>%
+      # rts <- aoi_data_joined %>%
       group_by(subject_id, trial_id, age_binned, target_label) %>%
       nest() %>%
       mutate(rt = purrr::map(data, .f = compute_rt, sampling_rate = 33)) %>%
@@ -269,6 +267,44 @@ server <- function(input, output, session) {
       scale_color_solarized() +
       scale_fill_solarized() 
   })
+
+
+  ## ---------- ACCURACY BAR
+  output$accuracy_plot <- renderPlot({
+    acc_means <- aoi_data_joined() %>%
+    # acc_means <- foo %>%
+      group_by(subject_id, trial_id, age_binned, target_label) %>%
+      filter(t >= input$analysis_window_range[1],
+             t <= input$analysis_window_range[2]) %>%
+      summarise(prop_looking = mean(aoi == "target", na.rm = TRUE)) %>%
+      group_by(age_binned, target_label) %>%
+      summarise(mean = mean(prop_looking, na.rm = TRUE),
+                ci_lower = mean + ci.95(prop_looking)[1],
+                ci_upper = mean + ci.95(prop_looking)[2],
+                n = n())
+             
+    if (input$age_facet) {
+      p <- ggplot(acc_means, 
+                  aes(x = age_binned, y = mean, fill = age_binned)) + 
+        geom_bar(stat = "identity") +
+        facet_wrap(~target_label)
+    } else {
+      p <- ggplot(acc_means, 
+                  aes(x = target_label, y = mean, fill = target_label)) + 
+        geom_bar(stat = "identity") +
+        facet_wrap(~age_binned)
+    }
+    p + 
+      geom_linerange(aes(ymin = ci_lower, ymax = ci_upper)) +
+      geom_hline(yintercept = .5, lty = 2) + 
+      ylim(0,1) + 
+      ylab("Proportion Target Looking") +
+      xlab("Age (binned)") +
+      theme_mikabr() +
+      scale_color_solarized() +
+      scale_fill_solarized()
+  })
+  
   
   ## ---------- ONSET 
   output$onset_plot <- renderPlot({
@@ -276,7 +312,7 @@ server <- function(input, output, session) {
     req(rts())
     
     onset_means <- left_join(rts(), aoi_data_joined()) %>%
-    # onset_means <- left_join(rts, aoi_data_joined) %>%
+      # onset_means <- left_join(rts, aoi_data_joined) %>%
       group_by(t, shift_type, age_binned, target_label) %>%
       summarise(prop_looking = mean(aoi != crit_onset_aoi & aoi != "other", na.rm = TRUE))
     
@@ -296,48 +332,12 @@ server <- function(input, output, session) {
     
   })
   
-  
-  ## ---------- ACCURACY BAR
-  output$accuracy_plot <- renderPlot({
-    acc_means <- aoi_data_joined() %>%
-    # acc_means <- foo %>%
-      group_by(subject_id, trial_id, age_binned, target_label) %>%
-      filter(t >= input$analysis_window_range[1],
-             t <= input$analysis_window_range[2]) %>%
-      summarise(prop_looking = mean(aoi == "target", na.rm = TRUE)) %>%
-      group_by(age_binned, target_label) %>%
-      summarise(mean = mean(prop_looking, na.rm = TRUE),
-                ci_lower = mean + ci.95(prop_looking)[1],
-                ci_upper = mean + ci.95(prop_looking)[2],
-                n = n())
-             
-    if (input$age_facet) {
-      p <- ggplot(acc_means, 
-                  aes(x = age_binned, y = mean, fill = age_binned)) + 
-        geom_bar(stat="identity") +
-        facet_wrap(~target_label)
-    } else {
-      p <- ggplot(acc_means, 
-                  aes(x = target_label, y = mean, fill = target_label)) + 
-        geom_bar(stat="identity") +
-        facet_wrap(~age_binned)
-    }
-    p + 
-      geom_linerange(aes(ymin = ci_lower, ymax = ci_upper)) +
-      geom_hline(yintercept = .5, lty = 2) + 
-      ylim(0,1) + 
-      ylab("Proportion Target Looking") +
-      xlab("Age (binned)") +
-      theme_mikabr() +
-      scale_color_solarized() +
-      scale_fill_solarized()
-  })
-  
   ## ---------- RT BAR
-  output$rt_hist <- renderPlot({
+  output$rt_plot <- renderPlot({
     req(rts())
     
     rt_means <- rts() %>%
+      # rt_means <- rts %>%
       filter(shift_type == "D-T") %>%
       group_by(age_binned, target_label) %>%
       summarise(mean = mean(rt_value, na.rm = TRUE),
@@ -399,7 +399,7 @@ server <- function(input, output, session) {
       geom_histogram() + 
       theme_mikabr() +
       scale_fill_solarized(name = "Dataset") +
-      xlab("Age (months)") + 
+      xlab("Age (months)") 
   })
   
 }
