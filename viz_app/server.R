@@ -1,8 +1,9 @@
 library(tidyverse)
-library(eyetrackingR)
+# library(eyetrackingR)
 library(ggthemes)
 library(langcog)
-source(here::here("rt_histogram/rt_helpers.R"))
+library(peekbankr)
+source(here::here("helpers/rt_helpers.R"))
 
 ci.95 <- function(x) {
   n <- sum(!is.na(x))
@@ -10,10 +11,31 @@ ci.95 <- function(x) {
   return(c(qnorm(0.025)*sem, qnorm(0.975)*sem))
 }
 
-aoi_data_sample <- read_csv(here::here("demo_data/aoi_data.csv"))
-dataset_sample <- read_csv(here::here("demo_data/dataset.csv"))
-subjects_sample <- read_csv(here::here("demo_data/subjects.csv"))
-trials_sample <- read_csv(here::here("demo_data/trials.csv"))
+debug <- FALSE
+debug_local <- FALSE
+
+if (debug) {
+  aoi_data <- get_aoi_data() %>%
+    mutate(age_binned = 1, 
+           target_label = "all")
+  subjects <- get_subjects()
+  trials <- get_trials()
+  datasets <- get_datasets()
+  
+  aoi_data_joined <- aoi_data %>%
+    left_join(subjects, by = "subject_id") %>%
+    left_join(trials, by = "trial_id") %>%
+    left_join(datasets, by = "dataset_id")
+  
+  input <- list()
+  input$analysis_window_range <- c(250,2250)
+} else if (debug_local) {
+  aoi_data_sample <- read_csv(here::here("demo_data/aoi_data.csv"))
+  dataset_sample <- read_csv(here::here("demo_data/dataset.csv"))
+  subjects_sample <- read_csv(here::here("demo_data/subjects.csv"))
+  trials_sample <- read_csv(here::here("demo_data/trials.csv"))
+  
+}
 
 # MAIN SHINY SERVER
 server <- function(input, output, session) {
@@ -23,31 +45,32 @@ server <- function(input, output, session) {
   # this is inefficient and should be revisited
   
   all_aoi_data <- reactive({
-    aoi_data_sample
+    get_aoi_data()
   })
   
   all_subjects_data <- reactive({
-    subjects_sample
+    get_subjects()
   })
   
   all_trials_data <- reactive({
-    trials_sample
+    get_trials()
   })
   
   all_datasets <- reactive({
-    dataset_sample
+    get_datasets()
   })
   
   # ---- reactive parameters 
   
   age_min <- reactive({
     req(all_subjects_data())
-    min(all_subjects_data()$age)
+    
+    min(all_subjects_data()$age, na.rm = TRUE)
   })
   
   age_max <- reactive({
     req(all_subjects_data())
-    max(all_subjects_data()$age)
+    max(all_subjects_data()$age, na.rm = TRUE)
   })
   
   window_min <- reactive({
@@ -69,9 +92,9 @@ server <- function(input, output, session) {
   datasets_list <- reactive({
     req(all_datasets())
 
-    print(unique(all_datasets()$dataset))
+    print(unique(all_datasets()$lab_dataset_id))
 
-    c("All", unique(all_datasets()$dataset))
+    c("All", unique(all_datasets()$lab_dataset_id))
   })
   
   # ---- actual restricted data
@@ -108,14 +131,32 @@ server <- function(input, output, session) {
     }
   })
   
-  aoi_data <- reactive({
+  aoi_data_joined <- reactive({
     all_aoi_data() %>%
-      right_join(subjects_data()) %>%
-      right_join(trials_data()) %>%
-      right_join(datasets()) %>%
+      right_join(subjects_data(), by = "subject_id") %>%
+      right_join(trials_data(), by = "trial_id") %>%
+      right_join(datasets(), by = "dataset_id") %>%
       filter(t > input$plot_window_range[1],
              t < input$plot_window_range[2])
   })
+  
+  rts <- reactive({
+    aoi_data_joined() %>%
+      # rts <- aoi_data %>%
+      group_by(subject_id, trial_id, age_binned, target_label) %>%
+      nest() %>%
+      mutate(rt = purrr::map(data, .f = compute_rt, sampling_rate = 33)) %>%
+      unnest(rt, .drop = T) %>%
+      filter(shift_type %in% c("D-T", "T-D"))
+  })
+  
+  subinfo <- reactive({
+    aoi_data_joined() %>%
+      # aoi_data_joined %>%
+      group_by(subject_id, dataset_id, lab_dataset_id, age) %>%
+      summarise(trials = length(unique(trial_id)))
+  })
+  
   
   ## ----------------------- SELECTORS -----------------------
 
@@ -128,13 +169,6 @@ server <- function(input, output, session) {
                 min = floor(age_min()), max = ceiling(age_max()))
   })
   
-  # SLIDER FOR AGE BINWIDTH
-  # output$age_binwidth_selector <- renderUI({
-  #   sliderInput("age_binwidth",
-  #               label = "Bin size (months)",
-  #               value = 2, step = 2,
-  #               min = 0, max = 24)
-  # })
   output$age_nbins_selector <- renderUI({
     sliderInput("age_nbins",
                 label = "Number of age groups",
@@ -191,9 +225,10 @@ server <- function(input, output, session) {
   
   ## ---------- PROFILE 
   output$profile_plot <- renderPlot({
-    req(aoi_data())
+    req(aoi_data_joined())
     
-    means <- aoi_data() %>%
+    means <- aoi_data_joined() %>%
+    # means <- aoi_data_joined %>%
       group_by(t, age_binned, target_label) %>%
       summarise(n = sum(!is.na(aoi)), 
                 p = sum(aoi == "target", na.rm = TRUE),
@@ -237,36 +272,36 @@ server <- function(input, output, session) {
   
   ## ---------- ONSET 
   output$onset_plot <- renderPlot({
-    onset_means <- aoi_data() %>%
-    # onset_means <- foo %>%
-      group_by(sub_id, trial_id) %>%
-      mutate(t0 = aoi[t == 0]) %>%
-      group_by(t, t0, age_binned, target_label) %>%
-      filter(!is.na(t0), t0 != "other") %>%
-      summarise(prop_looking = mean(aoi != t0 & aoi != "other", na.rm = TRUE))
+    req(aoi_data_joined()) 
+    req(rts())
+    
+    onset_means <- left_join(rts(), aoi_data_joined()) %>%
+    # onset_means <- left_join(rts, aoi_data_joined) %>%
+      group_by(t, shift_type, age_binned, target_label) %>%
+      summarise(prop_looking = mean(aoi != crit_onset_aoi & aoi != "other", na.rm = TRUE))
     
     ggplot(onset_means, 
-           aes(x = t, y = prop_looking, lty = t0)) + 
-
+           aes(x = t, y = prop_looking, lty = shift_type)) + 
       geom_line(aes(col = target_label)) +
       facet_grid(target_label~age_binned) +
-      geom_hline(yintercept = .5, lty = 2) + 
+      geom_hline(yintercept = .5, lty = 2) +
       geom_vline(xintercept = 0, lty = 2) +
       xlim(0, max(onset_means$t)) +
       ylab("Proportion Target Looking") +
       xlab("Time (msec)") +
-      theme_classic() +
+      theme_mikabr() +
       scale_color_solarized() +
       scale_fill_solarized()
     # TODO: SHADE REGIONS
     
   })
   
+  
   ## ---------- ACCURACY BAR
   output$accuracy_plot <- renderPlot({
-    acc_means <- aoi_data() %>%
+    acc_means <- aoi_data_joined() %>%
     # acc_means <- foo %>%
-      group_by(sub_id, trial_id, age_binned, target_label) %>%
+      group_by(subject_id, trial_id, age_binned, target_label) %>%
       filter(t >= input$analysis_window_range[1],
              t <= input$analysis_window_range[2]) %>%
       summarise(prop_looking = mean(aoi == "target", na.rm = TRUE)) %>%
@@ -293,147 +328,78 @@ server <- function(input, output, session) {
       ylim(0,1) + 
       ylab("Proportion Target Looking") +
       xlab("Age (binned)") +
-      theme_classic() +
+      theme_mikabr() +
       scale_color_solarized() +
       scale_fill_solarized()
   })
   
   ## ---------- RT BAR
-  output$rt_plot <- renderPlot({
-    rt_result <- aoi_data() %>%
-    # rt_result <- aoi_data %>%
-        group_by(sub_id, trial_id) %>%
-        nest() %>%
-        mutate(rt = purrr::map(data, .f = compute_rt, sampling_rate = 33)) %>%
-        unnest(rt, .drop = T) %>%
-        filter(shift_type %in% c("D-T", "T-D")) %>%
-        left_join(subjects_data(), by = c("sub_id"))
-        # mutate(age_binned = cut(age, 2))
+  output$rt_hist <- renderPlot({
+    req(rts())
+    
+    rt_means <- rts() %>%
+      filter(shift_type == "D-T") %>%
+      group_by(age_binned, target_label) %>%
+      summarise(mean = mean(rt_value, na.rm = TRUE),
+                ci_lower = mean + ci.95(rt_value)[1],
+                ci_upper = mean + ci.95(rt_value)[2],
+                n = n())
+    
+    if (input$age_facet) {
+      p <- ggplot(rt_means,
+                  aes(x = age_binned, y = mean, fill = age_binned)) +
+        geom_bar(stat="identity") +
+        facet_wrap(~target_label)
+    } else {
+      p <- ggplot(rt_means,
+                  aes(x = target_label, y = mean, fill = target_label)) +
+        geom_bar(stat="identity") +
+        facet_wrap(~age_binned)
+    }
+    p +
+      geom_linerange(aes(ymin = ci_lower, ymax = ci_upper)) +
+      geom_hline(yintercept = .5, lty = 2) +
+      ylab("Reaction time (msec)") +
+      xlab("Age (binned)") +
+      theme_mikabr() +
+      scale_color_solarized() +
+      scale_fill_solarized()
+  })
+  
+  
+  ## ---------- RT HISTOGRAM
+  output$rt_hist <- renderPlot({
+    req(rts())
 
         # Histogram of RTs in peekbank data ----
         # with requested number of bins and RT filters
         if (input$age_facet) {
-          p <- rt_result %>%
-            ggplot(aes(x = rt_value, color=age_binned)) +
-            geom_histogram(
-              fill="white",
-              alpha = 0.5,
-              position = "identity") +
-            labs(x = "RT (msec)", y = "Count")
+          p <- rts() %>%
+            ggplot(aes(x = rt_value, color = age_binned))
         } else {
-          p <- ggplot(rt_result,
-                      aes(x = rt_value)) +
-            geom_histogram(
-              fill="white", alpha = 0.4, position ="identity")
-            labs(x = "RT (msec)", y = "Court")
+          p <- ggplot(rts(),
+                      aes(x = rt_value)) 
         }
-    p
+    p +     
+      geom_histogram(fill = "white", alpha = 0.4, 
+                     position = "identity") + 
+      labs(x = "RT (msec)", y = "Count") + 
+      theme_mikabr() +
+      scale_color_solarized() +
+      scale_fill_solarized()
   })
+  
+  
+  ## ---------- AGE BAR
+  output$age_hist <- renderPlot({
+    req(subinfo()) 
+    
+    subinfo() %>% 
+      ggplot(aes(x = age, fill = lab_dataset_id)) +
+      geom_histogram() + 
+      theme_mikabr() +
+      scale_fill_solarized(name = "Dataset") +
+      xlab("Age (months)") + 
+  })
+  
 }
-
-# 
-# <<<<<<< HEAD
-# # rts <- foo %>%
-# rts <- aoi_data() %>%
-#   group_by(sub_id, trial_id, age_binned, target_label) %>%
-#   mutate(t0 = aoi[t == 0]) %>%
-#   filter(t >= input$analysis_window_range[1],
-#          t <= input$analysis_window_range[2]) %>%
-#   summarise(rt = min(t[aoi != t0 & aoi != "other"])) %>%
-#   filter(is.finite(rt)) 
-# 
-# rt_means <- rts %>%
-#   group_by(age_binned, target_label) %>%
-#   summarise(mean = mean(rt, na.rm = TRUE),
-#             ci_lower = mean + ci.95(rt)[1],
-#             ci_upper = mean + ci.95(rt)[2],
-#             n = n())
-# 
-# if (input$age_facet) {
-#   p <- ggplot(rt_means, 
-#               aes(x = age_binned, y = mean, fill = age_binned)) + 
-#     geom_bar(stat="identity") +
-#     facet_wrap(~target_label)
-# } else {
-#   p <- ggplot(rt_means, 
-#               aes(x = target_label, y = mean, fill = target_label)) + 
-#     geom_bar(stat="identity") +
-#     facet_wrap(~age_binned)
-# }
-# p + 
-#   geom_linerange(aes(ymin = ci_lower, ymax = ci_upper)) +
-#   geom_hline(yintercept = .5, lty = 2) + 
-#   ylab("Reaction time (msec)") +
-#   xlab("Age (binned)") +
-#   theme_classic() +
-#   scale_color_solarized() +
-#   scale_fill_solarized()
-# 
-
-
-# 
-# rt_result <- foo %>%
-#   group_by(sub_id, trial_id) %>%
-#   nest() %>%
-#   mutate(rt = purrr::map(data, .f = compute_rt, sampling_rate = 33)) %>%
-#   unnest(rt, .drop = T) %>%
-#   filter(shift_type %in% c("D-T", "T-D")) %>%
-#   left_join(d_participants, by = c("sub_id")) %>%
-#   mutate(age_binned = cut_number(age, n = 3))
-
-# # Define server logic required to draw RT histograms ----
-# rt_result <- d %>% 
-#   group_by(sub_id, trial_id) %>% 
-#   nest() %>% 
-#   mutate(rt = purrr::map(data, .f = compute_rt, sampling_rate = 33)) %>% 
-#   unnest(rt, .drop = T) %>% 
-#   filter(shift_type %in% c("D-T", "T-D")) %>% 
-#   left_join(d_participants, by = c("sub_id")) %>% 
-#   mutate(age_binned = cut_number(age, n = 3))
-# 
-# rt_ylim_buffer <- 100
-# 
-# server <- function(input, output) {
-#   # filter rts
-#   observeEvent( input$filter, {
-#     rt_filt <- rt_result %>% 
-#       filter(rt_value >= as.numeric(input$rt_window[1]),
-#              rt_value <= as.numeric(input$rt_window[2]),
-#              fst_shift_gap_ms <= as.numeric(input$max_fst_gap))
-#     
-#     # compute median rts for different shift types
-#     rt_median <- rt_filt %>% 
-#       group_by(shift_type) %>% 
-#       summarise(rt_median = median(rt_value))
-#     
-#     # compute mean rt for each participant based on filtering
-#     ss_rt <- rt_filt %>% 
-#       filter(shift_type == "D-T", !is.na(rt_value)) %>% 
-#       group_by(sub_id, age_binned, age) %>% 
-#       summarise(m_rt = mean(rt_value)) %>% 
-#       ungroup() %>% 
-#       mutate(min_rt = min(m_rt),
-#              max_rt = max(m_rt))
-#     
-#     # Histogram of RTs in peekbank data ----
-#     # with requested number of bins and RT filters
-#     output$plot <- renderPlot({
-#       
-#       rt_hist <- rt_filt %>% 
-#         ggplot(aes(x = rt_value)) +
-#         geom_histogram(bins = input$bins, color = "black", alpha = 0.4) +
-#         labs(x = "RT (msec)", y = "Count") +
-#         facet_wrap(~shift_type, ncol = 1) +
-#         geom_vline(data = rt_median, aes(xintercept = rt_median), 
-#                    color = "darkorange", size = 1.5)
-#       
-#       age_scatter <- ss_rt %>% 
-#         ggplot(aes(x = age, y = m_rt)) +
-#         geom_point(shape = 21, size = 3, color = "black", 
-#                    fill = "grey") +
-#         geom_smooth(method = "lm") +
-#         lims(y = c(0, ss_rt$max_rt[1] + rt_ylim_buffer)) +
-#         labs(x = "Age (months)", y = "Average RT (msec)")
-#       
-#       
-#       cowplot::plot_grid(rt_hist, age_scatter, scale = c(1, 0.9))

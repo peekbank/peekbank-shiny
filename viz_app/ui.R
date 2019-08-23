@@ -6,7 +6,7 @@ ui <- fluidPage(
   theme = shinytheme("spacelab"),
   
   bsCollapse(id = "doc", open = "title",
-             bsCollapsePanel(title = h3("PeekBank Analyses"),
+             bsCollapsePanel(title = h3("PeekBank Visualization Tool"),
                              includeMarkdown("../docs/peekbank.md"),
                              value = "title",
                              style = "default")
@@ -36,16 +36,24 @@ ui <- fluidPage(
                   tabPanel("Profile",
                            plotOutput("profile_plot")
                   ),
-                  tabPanel("Onset",
-                           plotOutput("onset_plot")
-                  )
-      ),
-      tabsetPanel(selected = "Accuracy", 
                   tabPanel("Accuracy",
                            plotOutput("accuracy_plot")
-                  ),
+                  )
+      ),
+      tabsetPanel(selected = "Reaction Time", 
                   tabPanel("Reaction Time",
                            plotOutput("rt_plot")
+                  ),
+                  tabPanel("Onset",
+                           plotOutput("onset_plot")
+                  ),
+                  tabPanel("RT Histogram",
+                           plotOutput("rt_hist")
+                  )
+      ),
+      tabsetPanel(selected = "Age Histogram", 
+                  tabPanel("Age Histogram",
+                           plotOutput("age_hist")
                   )
       )
     )
