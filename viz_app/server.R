@@ -2,6 +2,7 @@ library(tidyverse)
 library(eyetrackingR)
 library(ggthemes)
 library(langcog)
+source(here::here("rt_histogram/rt_helpers.R"))
 
 ci.95 <- function(x) {
   n <- sum(!is.na(x))
@@ -299,43 +300,76 @@ server <- function(input, output, session) {
   
   ## ---------- RT BAR
   output$rt_plot <- renderPlot({
-    # rts <- foo %>%
-    rts <- aoi_data() %>%
-      group_by(sub_id, trial_id, age_binned, target_label) %>%
-      mutate(t0 = aoi[t == 0]) %>%
-      filter(t >= input$analysis_window_range[1],
-             t <= input$analysis_window_range[2]) %>%
-      summarise(rt = min(t[aoi != t0 & aoi != "other"])) %>%
-      filter(is.finite(rt)) 
-    
-    rt_means <- rts %>%
-      group_by(age_binned, target_label) %>%
-      summarise(mean = mean(rt, na.rm = TRUE),
-                ci_lower = mean + ci.95(rt)[1],
-                ci_upper = mean + ci.95(rt)[2],
-                n = n())
-    
-    if (input$age_facet) {
-      p <- ggplot(rt_means, 
-                  aes(x = age_binned, y = mean, fill = age_binned)) + 
-        geom_bar(stat="identity") +
-        facet_wrap(~target_label)
-    } else {
-      p <- ggplot(rt_means, 
-                  aes(x = target_label, y = mean, fill = target_label)) + 
-        geom_bar(stat="identity") +
-        facet_wrap(~age_binned)
-    }
-    p + 
-      geom_linerange(aes(ymin = ci_lower, ymax = ci_upper)) +
-      geom_hline(yintercept = .5, lty = 2) + 
-      ylab("Reaction time (msec)") +
-      xlab("Age (binned)") +
-      theme_classic() +
-      scale_color_solarized() +
-      scale_fill_solarized()
+    rt_result <- aoi_data() %>%
+    # rt_result <- aoi_data %>%
+        group_by(sub_id, trial_id) %>%
+        nest() %>%
+        mutate(rt = purrr::map(data, .f = compute_rt, sampling_rate = 33)) %>%
+        unnest(rt, .drop = T) %>%
+        filter(shift_type %in% c("D-T", "T-D")) %>%
+        left_join(subjects_data(), by = c("sub_id"))
+        # mutate(age_binned = cut(age, 2))
+
+        # Histogram of RTs in peekbank data ----
+        # with requested number of bins and RT filters
+        if (input$age_facet) {
+          p <- rt_result %>%
+            ggplot(aes(x = rt_value, color=age_binned)) +
+            geom_histogram(
+              fill="white",
+              alpha = 0.5,
+              position = "identity") +
+            labs(x = "RT (msec)", y = "Count")
+        } else {
+          p <- ggplot(rt_result,
+                      aes(x = rt_value)) +
+            geom_histogram(
+              fill="white", alpha = 0.4, position ="identity")
+            labs(x = "RT (msec)", y = "Court")
+        }
+    p
   })
 }
+
+# 
+# <<<<<<< HEAD
+# # rts <- foo %>%
+# rts <- aoi_data() %>%
+#   group_by(sub_id, trial_id, age_binned, target_label) %>%
+#   mutate(t0 = aoi[t == 0]) %>%
+#   filter(t >= input$analysis_window_range[1],
+#          t <= input$analysis_window_range[2]) %>%
+#   summarise(rt = min(t[aoi != t0 & aoi != "other"])) %>%
+#   filter(is.finite(rt)) 
+# 
+# rt_means <- rts %>%
+#   group_by(age_binned, target_label) %>%
+#   summarise(mean = mean(rt, na.rm = TRUE),
+#             ci_lower = mean + ci.95(rt)[1],
+#             ci_upper = mean + ci.95(rt)[2],
+#             n = n())
+# 
+# if (input$age_facet) {
+#   p <- ggplot(rt_means, 
+#               aes(x = age_binned, y = mean, fill = age_binned)) + 
+#     geom_bar(stat="identity") +
+#     facet_wrap(~target_label)
+# } else {
+#   p <- ggplot(rt_means, 
+#               aes(x = target_label, y = mean, fill = target_label)) + 
+#     geom_bar(stat="identity") +
+#     facet_wrap(~age_binned)
+# }
+# p + 
+#   geom_linerange(aes(ymin = ci_lower, ymax = ci_upper)) +
+#   geom_hline(yintercept = .5, lty = 2) + 
+#   ylab("Reaction time (msec)") +
+#   xlab("Age (binned)") +
+#   theme_classic() +
+#   scale_color_solarized() +
+#   scale_fill_solarized()
+# 
+
 
 # 
 # rt_result <- foo %>%
