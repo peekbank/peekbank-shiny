@@ -188,6 +188,7 @@ server <- function(input, output, session) {
   
   ## ----------------------- PLOTS -----------------------
   
+  ## ---------- PROFILE 
   output$profile_plot <- renderPlot({
     req(aoi_data())
     
@@ -233,35 +234,21 @@ server <- function(input, output, session) {
       scale_fill_solarized() 
   })
   
+  ## ---------- ONSET 
   output$onset_plot <- renderPlot({
     onset_means <- aoi_data() %>%
+    # onset_means <- foo %>%
       group_by(sub_id, trial_id) %>%
       mutate(t0 = aoi[t == 0]) %>%
       group_by(t, t0, age_binned, target_label) %>%
       filter(!is.na(t0), t0 != "other") %>%
       summarise(prop_looking = mean(aoi != t0 & aoi != "other", na.rm = TRUE))
-
-    if (input$age_facet) {
-      p <- ggplot(onset_means, 
-                  aes(x = t, y = prop_looking, lty = t0)) + 
-        geom_rect(xmin = input$analysis_window_range[1],
-                  xmax = input$analysis_window_range[2],
-                  ymin = 0,
-                  ymax = 1, fill = "gray", alpha = .1) +
-        geom_line(aes(col = age_binned)) 
-        facet_wrap(.~target_label)
-    } else {
-      p <- ggplot(onset_means, 
-                  aes(x = t, y = prop_looking)) + 
-        geom_rect(xmin = input$analysis_window_range[1],
-                  xmax = input$analysis_window_range[2],
-                  ymin = 0,
-                  ymax = 1, fill = "gray", alpha = .1) +
-        geom_line(aes(col = target_label)) +
-        facet_wrap(.~age_binned)
-    }
     
-    p + 
+    ggplot(onset_means, 
+           aes(x = t, y = prop_looking, lty = t0)) + 
+
+      geom_line(aes(col = target_label)) +
+      facet_grid(target_label~age_binned) +
       geom_hline(yintercept = .5, lty = 2) + 
       geom_vline(xintercept = 0, lty = 2) +
       xlim(0, max(onset_means$t)) +
@@ -270,8 +257,11 @@ server <- function(input, output, session) {
       theme_classic() +
       scale_color_solarized() +
       scale_fill_solarized()
+    # TODO: SHADE REGIONS
+    
   })
   
+  ## ---------- ACCURACY BAR
   output$accuracy_plot <- renderPlot({
     acc_means <- aoi_data() %>%
     # acc_means <- foo %>%
@@ -305,15 +295,58 @@ server <- function(input, output, session) {
       theme_classic() +
       scale_color_solarized() +
       scale_fill_solarized()
-      
   })
   
+  ## ---------- RT BAR
   output$rt_plot <- renderPlot({
-    ggplot()
+    # rts <- foo %>%
+    rts <- aoi_data() %>%
+      group_by(sub_id, trial_id, age_binned, target_label) %>%
+      mutate(t0 = aoi[t == 0]) %>%
+      filter(t >= input$analysis_window_range[1],
+             t <= input$analysis_window_range[2]) %>%
+      summarise(rt = min(t[aoi != t0 & aoi != "other"])) %>%
+      filter(is.finite(rt)) 
+    
+    rt_means <- rts %>%
+      group_by(age_binned, target_label) %>%
+      summarise(mean = mean(rt, na.rm = TRUE),
+                ci_lower = mean + ci.95(rt)[1],
+                ci_upper = mean + ci.95(rt)[2],
+                n = n())
+    
+    if (input$age_facet) {
+      p <- ggplot(rt_means, 
+                  aes(x = age_binned, y = mean, fill = age_binned)) + 
+        geom_bar(stat="identity") +
+        facet_wrap(~target_label)
+    } else {
+      p <- ggplot(rt_means, 
+                  aes(x = target_label, y = mean, fill = target_label)) + 
+        geom_bar(stat="identity") +
+        facet_wrap(~age_binned)
+    }
+    p + 
+      geom_linerange(aes(ymin = ci_lower, ymax = ci_upper)) +
+      geom_hline(yintercept = .5, lty = 2) + 
+      ylab("Reaction time (msec)") +
+      xlab("Age (binned)") +
+      theme_classic() +
+      scale_color_solarized() +
+      scale_fill_solarized()
   })
 }
 
 # 
+# rt_result <- foo %>%
+#   group_by(sub_id, trial_id) %>%
+#   nest() %>%
+#   mutate(rt = purrr::map(data, .f = compute_rt, sampling_rate = 33)) %>%
+#   unnest(rt, .drop = T) %>%
+#   filter(shift_type %in% c("D-T", "T-D")) %>%
+#   left_join(d_participants, by = c("sub_id")) %>%
+#   mutate(age_binned = cut_number(age, n = 3))
+
 # # Define server logic required to draw RT histograms ----
 # rt_result <- d %>% 
 #   group_by(sub_id, trial_id) %>% 
