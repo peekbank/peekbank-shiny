@@ -2,7 +2,7 @@ library(tidyverse)
 library(ggthemes)
 library(langcog)
 library(peekbankr)
-source(here::here("helpers/rt_helpers.R"))
+# source(here::here("helpers/rt_helpers.R"))
 source(here::here("helpers/general_helpers.R"))
 
 debug_local <- TRUE
@@ -11,6 +11,7 @@ age_min <- 0
 age_max <- 60
 window_min <- -1000
 window_max <- 3000
+SAMPLING_RATE <- 40
 
 # MAIN SHINY SERVER
 server <- function(input, output, session) {
@@ -60,7 +61,7 @@ server <- function(input, output, session) {
     print("aoi_timepoints")
     
     if (debug_local) {
-      aoi_timepoints <- read_csv(here::here("demo_data/aoi_timepoints.csv"), col_types = cols())
+      read_csv(here::here("demo_data/aoi_timepoints.csv"), col_types = cols())
     } else {
       get_aoi_timepoints(dataset_name = input$dataset_name, age = input$age_range)
     }
@@ -239,13 +240,22 @@ server <- function(input, output, session) {
     req(aoi_data_joined())
 
     print("rts")
+    # write_csv(aoi_data_joined(), "aoi_data_joined.csv")
 
+    # vectorized version 20x faster
     aoi_data_joined() %>%
       group_by(subject_id, trial_id, age_binned, stimulus_label) %>%
-      nest() %>%
-      mutate(rt = purrr::map(data, .f = compute_rt, sampling_rate = 40)) %>%
-      unnest(rt) %>%
-      filter(shift_type %in% c("D-T", "T-D"))
+      mutate(crit_onset_aoi = aoi[t_norm == 0], 
+             fst_shift_land_aoi = rle(aoi[t_norm >= 0])$values[3],
+             shift_type = case_when(
+               crit_onset_aoi == "distractor" & fst_shift_land_aoi == "target" ~ "D-T",
+               crit_onset_aoi == "distractor" & fst_shift_land_aoi == "other" ~ "D-O",
+               crit_onset_aoi == "target" & fst_shift_land_aoi == "distractor" ~ "T-D",
+               crit_onset_aoi == "target" & fst_shift_land_aoi == "other" ~ "T-O",
+               TRUE ~ "other shift"
+             ), 
+             rt_value = rle(aoi[t_norm >= 0])$lengths[1] * SAMPLING_RATE,
+             fst_shift_gap_ms = rle(aoi[t_norm >= 0])$lengths[2] * SAMPLING_RATE)
   })
   
   subinfo <- reactive({
