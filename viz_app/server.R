@@ -41,8 +41,8 @@ server <- function(input, output, session) {
       administrations <- get_administrations(dataset_name = input$dataset_name)
     }
     
-    administrations <- administrations %>%
-      mutate(age = age / (365.25/12)) # months conversion
+    # administrations <- administrations %>%
+    #   mutate(age = age / (365.25/12)) # months conversion
     
     if (input$age_nbins > 1) {
       administrations %>%
