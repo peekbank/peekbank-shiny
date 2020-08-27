@@ -1,12 +1,12 @@
 compute_rt <- function(trial, sampling_rate = NULL) {
   d_f0 <- trial %>% 
-    filter(t >= 0) 
+    filter(t_norm >= 0) 
   
   fst_shift_rle <- rle(d_f0$aoi)
   
   tibble(
     crit_onset_aoi = trial %>% 
-      filter(t == 0) %>% 
+      filter(t_norm == 0) %>% 
       pull(aoi),
     fst_shift_land_aoi = fst_shift_rle$values[3],
     shift_type = case_when(
