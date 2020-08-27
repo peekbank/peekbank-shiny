@@ -5,43 +5,7 @@ library(peekbankr)
 source(here::here("helpers/rt_helpers.R"))
 source(here::here("helpers/general_helpers.R"))
 
-debug <- FALSE
 debug_local <- TRUE
-
-if (debug) {
-  aoi_data <- get_aoi_data() %>%
-    mutate(age_binned = 1)
-  subjects <- get_subjects()
-  trials <- get_trials()
-  datasets <- get_datasets()
-  
-  aoi_data_joined <- aoi_data %>%
-    left_join(subjects, by = "subject_id") %>%
-    left_join(trials, by = "trial_id") %>%
-    left_join(datasets, by = "dataset_id")
-  
-  input <- list()
-  input$analysis_window_range <- c(250,2250)
-} else if (debug_local) {
-  # administrations <- function () {
-  #   read_csv(here::here("demo_data/administrations.csv"))}
-  # 
-  # aoi_timepoints <- function () {
-  #   read_csv(here::here("demo_data/aoi_timepoints.csv"))}
-  # 
-  # subjects <- function () {
-  #   read_csv(here::here("demo_data/subjects.csv"))}
-  # 
-  # trials <- function () {
-  #   read_csv(here::here("demo_data/trials.csv"))
-  # }
-  # 
-  # stimuli <- function () {
-  #   read_csv(here::here("demo_data/stimuli.csv"))}
-  # 
-  # datasets <- function () {
-  #   read_csv(here::here("demo_data/datasets.csv"))}
-}
 
 age_min <- 0
 age_max <- 60
@@ -53,7 +17,7 @@ server <- function(input, output, session) {
   ## ----------------------- DATA -----------------------
   
   # datasets
-  all_datasets <- reactive({
+  datasets <- reactive({
     
     print("datasets") 
     
@@ -76,10 +40,12 @@ server <- function(input, output, session) {
       administrations <- get_administrations(dataset_name = input$dataset_name)
     }
     
+    administrations <- administrations %>%
+      mutate(age = age / (365.25/12)) # months conversion
+    
     if (input$age_nbins > 1) {
       administrations %>%
-        mutate(age = age / (365.25/12), # months conversion
-               age_binned = cut(age, input$age_nbins))
+        mutate(age_binned = cut(age, input$age_nbins))
     } else {
       administrations %>%
         mutate(age_binned = "all ages")
@@ -179,11 +145,11 @@ server <- function(input, output, session) {
   })
   
   datasets_list <- reactive({
-    # req(all_datasets())
+    req(datasets())
     
     # print(unique(all_datasets()$dataset_name))
     
-    c("All", unique(all_datasets()$dataset_name))
+    c("All", unique(datasets()$dataset_name))
   })
   
   ## ----------------------- SELECTORS -----------------------
@@ -266,17 +232,15 @@ server <- function(input, output, session) {
       mutate(stimulus_id = target_id) %>%
       right_join(stimuli()) %>%
       filter(t_norm > input$plot_window_range[1],
-             t_norm < input$plot_window_range[2])
+             t_norm < input$plot_window_range[2]) 
   })
   
   rts <- reactive({
     req(aoi_data_joined())
 
     print("rts")
-    # knitr::kable(aoi_data_joined())
 
     aoi_data_joined() %>%
-      # rts <- aoi_data_joined %>%
       group_by(subject_id, trial_id, age_binned, stimulus_label) %>%
       nest() %>%
       mutate(rt = purrr::map(data, .f = compute_rt, sampling_rate = 40)) %>%
@@ -289,9 +253,7 @@ server <- function(input, output, session) {
     
     print("subinfo")
     
-    
     aoi_data_joined() %>%
-      # aoi_data_joined %>%
       group_by(subject_id, dataset_id, lab_dataset_id, age) %>%
       summarise(trials = length(unique(trial_id)))
   })
@@ -307,8 +269,6 @@ server <- function(input, output, session) {
     print("profile_plot")
     
     means <- aoi_data_joined() %>%
-      # mutate(stimulus_label = "All") %>%
-      # means <- aoi_data_joined %>%
       group_by(t_norm, age_binned, stimulus_label) %>%
       summarise(n = sum(!is.na(aoi)), 
                 p = sum(aoi == "target", na.rm = TRUE),
@@ -317,7 +277,7 @@ server <- function(input, output, session) {
                 ci_upper = binom::binom.confint(p, n, method = "bayes")$upper) 
     
     
-    print(head(means))
+    # print(head(means))
     
     if (input$age_facet) {
       p <- ggplot(means, 
@@ -479,7 +439,7 @@ server <- function(input, output, session) {
 
     subinfo() %>%
       ggplot(aes(x = age, fill = lab_dataset_id)) +
-      geom_histogram() +
+      geom_histogram(binwidth = 3) +
       theme_mikabr() +
       scale_fill_solarized(name = "Dataset") +
       xlab("Age (months)")
