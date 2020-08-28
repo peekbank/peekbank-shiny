@@ -4,12 +4,7 @@ library(langcog)
 library(peekbankr)
 source(here::here("helpers/general_helpers.R"))
 
-debug_local <- FALSE
-
-age_min <- 0
-age_max <- 60
-window_min <- -1000
-window_max <- 3000
+DEBUG_LOCAL <- FALSE
 SAMPLING_RATE <- 40
 
 # MAIN SHINY SERVER
@@ -21,7 +16,7 @@ server <- function(input, output, session) {
     
     print("datasets") 
     
-    if (debug_local) {
+    if (DEBUG_LOCAL) {
       read_csv(here::here("demo_data/datasets.csv"), col_types = cols())
     } else {
       get_datasets()
@@ -34,7 +29,7 @@ server <- function(input, output, session) {
     
     print("administrations")
   
-    if (debug_local) {
+    if (DEBUG_LOCAL) {
       administrations <- read_csv(here::here("demo_data/administrations.csv"), col_types = cols())
     } else {
       administrations <- get_administrations(dataset_name = input$dataset_name)
@@ -59,7 +54,7 @@ server <- function(input, output, session) {
     
     print("aoi_timepoints")
     
-    if (debug_local) {
+    if (DEBUG_LOCAL) {
       read_csv(here::here("demo_data/aoi_timepoints.csv"), col_types = cols())
     } else {
       get_aoi_timepoints(dataset_name = input$dataset_name, age = input$age_range)
@@ -73,7 +68,7 @@ server <- function(input, output, session) {
     
     print("trials")
     
-    if (debug_local) {
+    if (DEBUG_LOCAL) {
       read_csv(here::here("demo_data/trials.csv"), col_types = cols())
     } else {
       get_trials(dataset_name = input$dataset)
@@ -88,7 +83,7 @@ server <- function(input, output, session) {
     
     print("dataset stimuli")
     
-    if (debug_local) {
+    if (DEBUG_LOCAL) {
       stimuli <- read_csv(here::here("demo_data/stimuli.csv"), col_types = cols())
     } else {
       stimuli <- get_stimuli(dataset_name = input$dataset)
@@ -114,41 +109,35 @@ server <- function(input, output, session) {
   
   
   # ---------------- REACTIVE PARAMETERS FOR SELECTORS -----------------
+  # these are just parameters that get used in selectors and plotting
+    
+  age_min <- reactive({
+    req(administrations())
+    min(administrations()$age, na.rm = TRUE)
+  })
   
-  # reactive({
-  # req(subjects_data())
-  
-  # min(subjects_data()$age, na.rm = TRUE)
-  # 0
-  # })
-  # reactive({
-  # req(subjects_data())
-  # max(subjects_data()$age, na.rm = TRUE)
-  # })
-  # 
-  # window_min <- reactive({
-  #   # req(aoi_timepoints())
-  #   min(aoi_timepoints()$t_norm)
-  # })
-  # 
-  # window_max <- reactive({
-  #   # req(aoi_timepoints())
-  #   max(aoi_timepoints()$t_norm)
-  # })
+  age_max <- reactive({
+    req(administrations())
+    max(administrations()$age, na.rm = TRUE)
+  })
+   
+  window_min <- reactive({
+    req(aoi_timepoints())
+    min(aoi_timepoints()$t_norm)
+  })
+
+  window_max <- reactive({
+    req(aoi_timepoints())
+    max(aoi_timepoints()$t_norm)
+  })
   
   target_words <- reactive({
     req(dataset_stimuli())
-    
-    print("target_words")
-    
     c("All", unique(dataset_stimuli()$stimulus_label))
   })
   
   datasets_list <- reactive({
     req(datasets())
-    
-    # print(unique(all_datasets()$dataset_name))
-    
     c("All", unique(datasets()$dataset_name))
   })
   
@@ -159,9 +148,9 @@ server <- function(input, output, session) {
     # print("age_range_selector")
     sliderInput("age_range",
                 label = "Ages to include (months)",
-                value = c(age_min, age_max),
+                value = c(age_min(), age_max()),
                 step = 1, 
-                min = floor(age_min), max = ceiling(age_max))
+                min = floor(age_min()), max = ceiling(age_max()))
   })
   
   # SELECTOR FOR AGE BINNING
@@ -194,8 +183,8 @@ server <- function(input, output, session) {
                 label = "Plotting Window",
                 value = c(-500, 4000),
                 step = 100, 
-                min = window_min, 
-                max = window_max)
+                min = window_min(), 
+                max = window_max())
   })
   
   # SELECTOR FOR ANALYSIS WINDOW
@@ -205,7 +194,7 @@ server <- function(input, output, session) {
                 value = c(250, 2250),
                 step = 100, 
                 min = 0, 
-                max = window_max)
+                max = window_max())
   })
   
   # SELECTOR FOR DATASET
@@ -233,8 +222,7 @@ server <- function(input, output, session) {
       right_join(administrations()) %>%
       right_join(trials()) %>%
       right_join(datasets()) %>%
-      mutate(stimulus_id = target_id) %>%
-      right_join(stimuli()) %>%
+      right_join(stimuli(), by = c("stimulus_id" = "target_id")) %>%
       filter(t_norm > input$plot_window_range[1],
              t_norm < input$plot_window_range[2]) 
   })
