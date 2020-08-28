@@ -2,7 +2,6 @@ library(tidyverse)
 library(ggthemes)
 library(langcog)
 library(peekbankr)
-# source(here::here("helpers/rt_helpers.R"))
 source(here::here("helpers/general_helpers.R"))
 
 debug_local <- FALSE
@@ -165,6 +164,7 @@ server <- function(input, output, session) {
                 min = floor(age_min), max = ceiling(age_max))
   })
   
+  # SELECTOR FOR AGE BINNING
   output$age_nbins_selector <- renderUI({
     sliderInput("age_nbins",
                 label = "Number of age groups",
@@ -198,6 +198,7 @@ server <- function(input, output, session) {
                 max = window_max)
   })
   
+  # SELECTOR FOR ANALYSIS WINDOW
   output$window_selector <- renderUI({
     sliderInput("analysis_window_range",
                 label = "Analysis Window",
@@ -218,6 +219,8 @@ server <- function(input, output, session) {
   
   
   # -------------------------- JOINS -------------------------
+  
+  # JOIN TABLES TO AOI DATA - CREATE MAIN DATAFRAME FOR ANALYSIS
   aoi_data_joined <- reactive({
     req(aoi_timepoints())
     req(trials())
@@ -236,6 +239,7 @@ server <- function(input, output, session) {
              t_norm < input$plot_window_range[2]) 
   })
   
+  # COMPUTE REACTION TIMES A LA FERNALD
   rts <- reactive({
     req(aoi_data_joined())
 
@@ -259,6 +263,7 @@ server <- function(input, output, session) {
              fst_shift_gap_ms = rle(aoi[t_norm >= 0])$lengths[2] * SAMPLING_RATE)
   })
   
+  # GET SUBJECT INFO FOR DESCRIPTIVE HISTOGRAMS
   subinfo <- reactive({
     req(aoi_data_joined())
     
