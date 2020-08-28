@@ -5,7 +5,7 @@ library(peekbankr)
 # source(here::here("helpers/rt_helpers.R"))
 source(here::here("helpers/general_helpers.R"))
 
-debug_local <- TRUE
+debug_local <- FALSE
 
 age_min <- 0
 age_max <- 60
@@ -77,7 +77,7 @@ server <- function(input, output, session) {
     if (debug_local) {
       read_csv(here::here("demo_data/trials.csv"), col_types = cols())
     } else {
-      get_trials(dataset_id = input$dataset)
+      get_trials(dataset_name = input$dataset)
     }
   })
   
@@ -92,7 +92,7 @@ server <- function(input, output, session) {
     if (debug_local) {
       stimuli <- read_csv(here::here("demo_data/stimuli.csv"), col_types = cols())
     } else {
-      stimuli <- get_stimuli(dataset = input$dataset)
+      stimuli <- get_stimuli(dataset_name = input$dataset)
     }
   })
   
@@ -240,7 +240,7 @@ server <- function(input, output, session) {
     req(aoi_data_joined())
 
     print("rts")
-    # write_csv(aoi_data_joined(), "aoi_data_joined.csv")
+    write_csv(aoi_data_joined(), "aoi_data_joined.csv")
 
     # vectorized version 20x faster
     aoi_data_joined() %>%
