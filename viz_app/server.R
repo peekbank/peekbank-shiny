@@ -240,10 +240,11 @@ server <- function(input, output, session) {
     req(aoi_data_joined())
 
     print("rts")
-    write_csv(aoi_data_joined(), "aoi_data_joined.csv")
+    # write_csv(aoi_data_joined(), "aoi_data_joined.csv")
 
     # vectorized version 20x faster
-    aoi_data_joined() %>%
+    # aoi_data_joined() %>%
+    aoi_data_joined %>%
       group_by(subject_id, trial_id, age_binned, stimulus_label) %>%
       mutate(crit_onset_aoi = aoi[t_norm == 0], 
              fst_shift_land_aoi = rle(aoi[t_norm >= 0])$values[3],
