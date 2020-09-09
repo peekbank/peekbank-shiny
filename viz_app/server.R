@@ -324,11 +324,11 @@ server <- function(input, output, session) {
   output$accuracy_plot <- renderPlot({
     acc_means <- aoi_data_joined() %>%
       # acc_means <- foo %>%
-      group_by(subject_id, trial_id, age_binned) %>%
+      group_by(subject_id, trial_id, age_binned, stimulus_label) %>%
       filter(t_norm >= input$analysis_window_range[1],
              t_norm <= input$analysis_window_range[2]) %>%
       summarise(prop_looking = mean(aoi == "target", na.rm = TRUE)) %>%
-      group_by(age_binned) %>%
+      group_by(age_binned, stimulus_label) %>%
       summarise(mean = mean(prop_looking, na.rm = TRUE),
                 ci_lower = mean + ci.95(prop_looking)[1],
                 ci_upper = mean + ci.95(prop_looking)[2],
@@ -363,6 +363,7 @@ server <- function(input, output, session) {
     req(rts())
 
     onset_means <- left_join(rts(), aoi_data_joined()) %>%
+      filter(shift_type != "other shift") %>%
       group_by(t_norm, shift_type, age_binned, stimulus_label) %>%
       summarise(prop_looking = mean(aoi != crit_onset_aoi & aoi != "other", na.rm = TRUE))
 
@@ -407,7 +408,6 @@ server <- function(input, output, session) {
     }
     p +
       geom_linerange(aes(ymin = ci_lower, ymax = ci_upper)) +
-      geom_hline(yintercept = .5, lty = 2) +
       ylab("Reaction time (msec)") +
       xlab("Age (binned)") +
       theme_mikabr() +
