@@ -28,8 +28,8 @@ MIN_N_FOR_BIGRAMS <- 50
 # --------------------- SHARED DATA LOADING ---------------------
 
 # load some demo data to play with 
-d <- read_csv(here('demo_data/aoi_data.csv'))
-d_participants <- read_csv(here('demo_data/participants.csv'))
+# d <- read_csv(here('demo_data/aoi_data.csv'))
+# d_participants <- read_csv(here('demo_data/participants.csv'))
 
 # --------------------- ENABLE BOOKMARKING ---------------------
 # Note: input elements must be generated in server.r for this to work

@@ -2,6 +2,7 @@ library(tidyverse)
 library(ggthemes)
 library(langcog)
 library(peekbankr)
+library(tictoc)
 source(here::here("helpers/general_helpers.R"))
 
 DEBUG_LOCAL <- FALSE
@@ -57,7 +58,9 @@ server <- function(input, output, session) {
     if (DEBUG_LOCAL) {
       read_csv(here::here("demo_data/aoi_timepoints.csv"), col_types = cols())
     } else {
+      tic()
       get_aoi_timepoints(dataset_name = input$dataset_name, age = input$age_range)
+      toc()
     }
   })
   
@@ -237,7 +240,6 @@ server <- function(input, output, session) {
     # write_csv(aoi_data_joined(), "aoi_data_joined.csv")
 
     # vectorized version 20x faster
-    # aoi_data_joined() %>%
     aoi_data_joined() %>%
       group_by(subject_id, trial_id, age_binned, stimulus_label) %>%
       mutate(crit_onset_aoi = aoi[t_norm == 0], 
