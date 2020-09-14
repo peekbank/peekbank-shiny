@@ -2,7 +2,7 @@ library(peekbankr)
 library(tidyverse)
 
 input <- list(dataset_name = "pomper_saffran_2016", analysis_window_range = c(250,2250),
-              plot_window_range = c(250,2250))
+              plot_window_range = c(250,2250), age_range = c(8, 84))
 datasets <- get_datasets()
 administrations <- get_administrations(dataset_name = input$dataset_name)  %>%
   mutate(age_binned = "all ages")

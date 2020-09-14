@@ -54,13 +54,11 @@ server <- function(input, output, session) {
     req(input$age_range)
     
     print("aoi_timepoints")
-    
+
     if (DEBUG_LOCAL) {
       read_csv(here::here("demo_data/aoi_timepoints.csv"), col_types = cols())
     } else {
-      tic()
-      get_aoi_timepoints(dataset_name = input$dataset_name, age = input$age_range)
-      toc()
+      get_aoi_timepoints(dataset_name = input$dataset, age = input$age_range)
     }
   })
   
