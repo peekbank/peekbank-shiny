@@ -58,8 +58,12 @@ server <- function(input, output, session) {
     if (DEBUG_LOCAL) {
       read_csv(here::here("demo_data/aoi_timepoints.csv"), col_types = cols())
     } else {
-      get_aoi_timepoints(dataset_name = input$dataset, age = input$age_range)
+      tictoc::tic()
+      foo <- get_aoi_timepoints(dataset_name = input$dataset, age = input$age_range)
+      tictoc::toc()
     }
+    tictoc::tic()
+    foo
   })
   
   # trials
@@ -308,7 +312,7 @@ server <- function(input, output, session) {
                         fill = stimulus_label), alpha = .5) +
         facet_wrap(.~age_binned) 
     }
-    
+    tictoc::toc()
     p + 
       geom_hline(yintercept = .5, lty = 2) + 
       geom_vline(xintercept = 0, lty = 2) +
