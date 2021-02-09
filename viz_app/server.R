@@ -80,6 +80,20 @@ server <- function(input, output, session) {
     }
   })
   
+  # trial types
+  trial_types <- reactive({
+    req(input$dataset)
+    req(input$age_range)
+    
+    print("trial types")
+    
+    if (DEBUG_LOCAL) {
+      read_csv(here::here("demo_data/trial_types.csv"), col_types = cols())
+    } else {
+      get_trial_types(dataset_name = input$dataset)
+    }
+  })
+  
   # all stimuli in the current datasets
   # - need to get all the stimuli to retrieve the words
   # - then stimuli can be filtered/mutated for the trials of interest
@@ -104,14 +118,12 @@ server <- function(input, output, session) {
     
     if (input$word == "All") {
       dataset_stimuli() %>%
-        mutate(stimulus_label = "All")
+        mutate(english_stimulus_label = "All")
     } else {
       dataset_stimuli() %>%
-        filter(stimulus_label %in% input$word)
+        filter(english_stimulus_label %in% input$word)
     }
   })
-
-  
   
   # ---------------- REACTIVE PARAMETERS FOR SELECTORS -----------------
   # these are just parameters that get used in selectors and plotting
@@ -138,7 +150,7 @@ server <- function(input, output, session) {
   
   target_words <- reactive({
     req(dataset_stimuli())
-    c("All", unique(dataset_stimuli()$stimulus_label))
+    c("All", unique(dataset_stimuli()$english_stimulus_label))
   })
   
   datasets_list <- reactive({
@@ -218,6 +230,7 @@ server <- function(input, output, session) {
   aoi_data_joined <- reactive({
     req(aoi_timepoints())
     req(trials())
+    req(trial_types())
     req(datasets())
     req(administrations())
     req(stimuli())
@@ -227,6 +240,7 @@ server <- function(input, output, session) {
     aoi_timepoints() %>%
       right_join(administrations()) %>%
       right_join(trials()) %>%
+      right_join(trial_types()) %>%
       right_join(datasets()) %>%
       mutate(stimulus_id = target_id) %>%
       right_join(stimuli()) %>%
@@ -242,8 +256,9 @@ server <- function(input, output, session) {
     # write_csv(aoi_data_joined(), "aoi_data_joined.csv")
 
     # vectorized version 20x faster
+    # note that this version filters RTs close to the absolute max value
     aoi_data_joined() %>%
-      group_by(subject_id, trial_id, age_binned, stimulus_label) %>%
+      group_by(subject_id, trial_id, age_binned, english_stimulus_label) %>%
       mutate(crit_onset_aoi = aoi[t_norm == 0], 
              fst_shift_land_aoi = rle(aoi[t_norm >= 0])$values[3],
              shift_type = case_when(
@@ -254,7 +269,9 @@ server <- function(input, output, session) {
                TRUE ~ "other shift"
              ), 
              rt_value = rle(aoi[t_norm >= 0])$lengths[1] * SAMPLING_RATE,
-             fst_shift_gap_ms = rle(aoi[t_norm >= 0])$lengths[2] * SAMPLING_RATE)
+             fst_shift_gap_ms = rle(aoi[t_norm >= 0])$lengths[2] * SAMPLING_RATE, 
+             t_max = max(t_norm)) %>%
+      filter(rt_value < t_max - 100)
   })
   
   # GET SUBJECT INFO FOR DESCRIPTIVE HISTOGRAMS
@@ -279,7 +296,7 @@ server <- function(input, output, session) {
     print("profile_plot")
     
     means <- aoi_data_joined() %>%
-      group_by(t_norm, age_binned, stimulus_label) %>%
+      group_by(t_norm, age_binned, english_stimulus_label) %>%
       summarise(n = sum(!is.na(aoi)), 
                 p = sum(aoi == "target", na.rm = TRUE),
                 prop_looking = mean(aoi == "target", na.rm = TRUE), 
@@ -299,7 +316,7 @@ server <- function(input, output, session) {
         geom_line(aes(col = age_binned)) + 
         geom_ribbon(aes(ymin = ci_lower, ymax = ci_upper, 
                         fill = age_binned), alpha = .5) +
-        facet_wrap(.~stimulus_label) 
+        facet_wrap(.~english_stimulus_label) 
     } else {
       p <- ggplot(means, 
                   aes(x = t_norm, y = prop_looking)) + 
@@ -307,9 +324,9 @@ server <- function(input, output, session) {
                   xmax = input$analysis_window_range[2],
                   ymin = 0,
                   ymax = 1, fill = "gray", alpha = .1) +
-        geom_line(aes(col = stimulus_label)) + 
+        geom_line(aes(col = english_stimulus_label)) + 
         geom_ribbon(aes(ymin = ci_lower, ymax = ci_upper, 
-                        fill = stimulus_label), alpha = .5) +
+                        fill = english_stimulus_label), alpha = .5) +
         facet_wrap(.~age_binned) 
     }
     tictoc::toc()
@@ -328,11 +345,11 @@ server <- function(input, output, session) {
   output$accuracy_plot <- renderPlot({
     acc_means <- aoi_data_joined() %>%
       # acc_means <- foo %>%
-      group_by(subject_id, trial_id, age_binned, stimulus_label) %>%
+      group_by(subject_id, trial_id, age_binned, english_stimulus_label) %>%
       filter(t_norm >= input$analysis_window_range[1],
              t_norm <= input$analysis_window_range[2]) %>%
       summarise(prop_looking = mean(aoi == "target", na.rm = TRUE)) %>%
-      group_by(age_binned, stimulus_label) %>%
+      group_by(age_binned, english_stimulus_label) %>%
       summarise(mean = mean(prop_looking, na.rm = TRUE),
                 ci_lower = mean + ci.95(prop_looking)[1],
                 ci_upper = mean + ci.95(prop_looking)[2],
@@ -342,10 +359,10 @@ server <- function(input, output, session) {
       p <- ggplot(acc_means,
                   aes(x = age_binned, y = mean, fill = age_binned)) +
         geom_bar(stat = "identity") +
-        facet_wrap(~stimulus_label)
+        facet_wrap(~english_stimulus_label)
     } else {
       p <- ggplot(acc_means,
-                  aes(x = stimulus_label, y = mean, fill = stimulus_label)) +
+                  aes(x = english_stimulus_label, y = mean, fill = english_stimulus_label)) +
         geom_bar(stat = "identity") +
         facet_wrap(~age_binned)
     }
@@ -366,15 +383,19 @@ server <- function(input, output, session) {
     req(aoi_data_joined())
     req(rts())
 
-    onset_means <- left_join(rts(), aoi_data_joined()) %>%
+    onset_means <- left_join(select(rts(), 
+                                    aoi_timepoint_id, t_norm, 
+                                    administration_id, trial_id, rt_value, 
+                                    crit_onset_aoi, shift_type), 
+                             aoi_data_joined()) %>%
       filter(shift_type != "other shift") %>%
-      group_by(t_norm, shift_type, age_binned, stimulus_label) %>%
+      group_by(t_norm, shift_type, age_binned, english_stimulus_label) %>%
       summarise(prop_looking = mean(aoi != crit_onset_aoi & aoi != "other", na.rm = TRUE))
 
     ggplot(onset_means,
            aes(x = t_norm, y = prop_looking, lty = shift_type)) +
-      geom_line(aes(col = stimulus_label)) +
-      facet_grid(stimulus_label~age_binned) +
+      geom_line(aes(col = english_stimulus_label)) +
+      facet_grid(english_stimulus_label~age_binned) +
       geom_hline(yintercept = .5, lty = 2) +
       geom_vline(xintercept = 0, lty = 2) +
       xlim(0, max(onset_means$t_norm)) +
@@ -393,7 +414,7 @@ server <- function(input, output, session) {
 
     rt_means <- rts() %>%
       filter(shift_type == "D-T") %>%
-      group_by(age_binned, stimulus_label) %>%
+      group_by(age_binned, english_stimulus_label) %>%
       summarise(mean = mean(rt_value, na.rm = TRUE),
                 ci_lower = mean + ci.95(rt_value)[1],
                 ci_upper = mean + ci.95(rt_value)[2],
@@ -403,10 +424,10 @@ server <- function(input, output, session) {
       p <- ggplot(rt_means,
                   aes(x = age_binned, y = mean, fill = age_binned)) +
         geom_bar(stat="identity") +
-        facet_wrap(~stimulus_label)
+        facet_wrap(~english_stimulus_label)
     } else {
       p <- ggplot(rt_means,
-                  aes(x = stimulus_label, y = mean, fill = stimulus_label)) +
+                  aes(x = english_stimulus_label, y = mean, fill = english_stimulus_label)) +
         geom_bar(stat="identity") +
         facet_wrap(~age_binned)
     }
@@ -435,7 +456,7 @@ server <- function(input, output, session) {
     }
     p +
       geom_histogram(fill = "white", alpha = 0.4,
-                     position = "identity") +
+                     position = "identity", binwidth = 200) +
       labs(x = "RT (msec)", y = "Count") +
       theme_mikabr() +
       scale_color_solarized() +
