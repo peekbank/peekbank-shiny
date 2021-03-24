@@ -4,6 +4,7 @@ library(langcog)
 library(peekbankr)
 library(tictoc)
 source(here::here("helpers/general_helpers.R"))
+source(here::here("helpers/rt_helper.R"))
 
 DEBUG_LOCAL <- FALSE
 SAMPLING_RATE <- 40
@@ -253,25 +254,25 @@ server <- function(input, output, session) {
     req(aoi_data_joined())
 
     print("rts")
-    # write_csv(aoi_data_joined(), "aoi_data_joined.csv")
-
-    # vectorized version 20x faster
-    # note that this version filters RTs close to the absolute max value
-    aoi_data_joined() %>%
-      group_by(subject_id, trial_id, age_binned, english_stimulus_label) %>%
-      mutate(crit_onset_aoi = aoi[t_norm == 0], 
-             fst_shift_land_aoi = rle(aoi[t_norm >= 0])$values[3],
-             shift_type = case_when(
-               crit_onset_aoi == "distractor" & fst_shift_land_aoi == "target" ~ "D-T",
-               crit_onset_aoi == "distractor" & fst_shift_land_aoi == "other" ~ "D-O",
-               crit_onset_aoi == "target" & fst_shift_land_aoi == "distractor" ~ "T-D",
-               crit_onset_aoi == "target" & fst_shift_land_aoi == "other" ~ "T-O",
-               TRUE ~ "other shift"
-             ), 
-             rt_value = rle(aoi[t_norm >= 0])$lengths[1] * SAMPLING_RATE,
-             fst_shift_gap_ms = rle(aoi[t_norm >= 0])$lengths[2] * SAMPLING_RATE, 
-             t_max = max(t_norm)) %>%
-      filter(rt_value < t_max - 100)
+    
+    rt_data <- aoi_data_joined() %>%
+      filter(any(t_norm == 0), # must have data at 0
+             t_norm >= 0) %>% # only pass data after 0
+      group_by(administration_id, trial_id) %>%
+      summarise(lengths = rle(aoi)$lengths, 
+                values = rle(aoi)$values) 
+    
+    rt_data %>%
+      group_by(administration_id, trial_id) %>%
+      nest() %>%
+      mutate(data = lapply(data, get_rt)) %>%
+      unnest(cols = c(data)) %>%
+      left_join(aoi_data_joined() %>%
+                  select(administration_id, trial_id, 
+                         age, age_binned, dataset_name, 
+                         english_stimulus_label, 
+                         stimulus_novelty, trial_order) %>%
+                  distinct())
   })
   
   # GET SUBJECT INFO FOR DESCRIPTIVE HISTOGRAMS
@@ -384,14 +385,18 @@ server <- function(input, output, session) {
     req(rts())
 
     onset_means <- left_join(select(rts(), 
-                                    aoi_timepoint_id, t_norm, 
-                                    administration_id, trial_id, rt_value, 
-                                    crit_onset_aoi, shift_type), 
+                                    administration_id, trial_id, rt, shift_type), 
                              aoi_data_joined()) %>%
-      filter(shift_type != "other shift") %>%
+      filter(shift_type != "other", 
+             shift_type != "no shift") %>%
       group_by(t_norm, shift_type, age_binned, english_stimulus_label) %>%
-      summarise(prop_looking = mean(aoi != crit_onset_aoi & aoi != "other", na.rm = TRUE))
+      summarise(prop_looking = mean(ifelse(shift_type == "T-D", 
+                                           aoi == "distractor" & aoi != "other",
+                                           aoi == "target" & aoi != "other"), 
+                                    na.rm = TRUE))
 
+    print("onset means")
+    
     ggplot(onset_means,
            aes(x = t_norm, y = prop_looking, lty = shift_type)) +
       geom_line(aes(col = english_stimulus_label)) +
@@ -415,29 +420,29 @@ server <- function(input, output, session) {
     rt_means <- rts() %>%
       filter(shift_type == "D-T") %>%
       group_by(age_binned, english_stimulus_label) %>%
-      summarise(mean = mean(rt_value, na.rm = TRUE),
-                ci_lower = mean + ci.95(rt_value)[1],
-                ci_upper = mean + ci.95(rt_value)[2],
+      summarise(mean = mean(rt, na.rm = TRUE),
+                ci_lower = mean + ci.95(rt)[1],
+                ci_upper = mean + ci.95(rt)[2],
                 n = n())
 
     if (input$age_facet) {
       p <- ggplot(rt_means,
                   aes(x = age_binned, y = mean, fill = age_binned)) +
         geom_bar(stat="identity") +
-        facet_wrap(~english_stimulus_label)
+        facet_wrap(~english_stimulus_label) + 
+        scale_fill_solarized(name = "Age group")
     } else {
       p <- ggplot(rt_means,
                   aes(x = english_stimulus_label, y = mean, fill = english_stimulus_label)) +
         geom_bar(stat="identity") +
-        facet_wrap(~age_binned)
+        facet_wrap(~age_binned) + 
+        scale_fill_solarized(name = "Label")
     }
     p +
       geom_linerange(aes(ymin = ci_lower, ymax = ci_upper)) +
       ylab("Reaction time (msec)") +
       xlab("Age (binned)") +
-      theme_mikabr() +
-      scale_color_solarized() +
-      scale_fill_solarized()
+      theme_mikabr() 
   })
   
   
@@ -449,18 +454,17 @@ server <- function(input, output, session) {
     # with requested number of bins and RT filters
     if (input$age_facet) {
       p <- rts() %>%
-        ggplot(aes(x = rt_value, color = age_binned))
+        ggplot(aes(x = rt, color = age_binned))
     } else {
       p <- ggplot(rts(),
-                  aes(x = rt_value))
+                  aes(x = rt))
     }
     p +
       geom_histogram(fill = "white", alpha = 0.4,
                      position = "identity", binwidth = 200) +
       labs(x = "RT (msec)", y = "Count") +
       theme_mikabr() +
-      scale_color_solarized() +
-      scale_fill_solarized()
+      scale_color_solarized(name = "Age group")
   })
   
   
