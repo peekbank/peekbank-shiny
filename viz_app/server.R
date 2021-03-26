@@ -6,11 +6,27 @@ library(tictoc)
 source(here::here("helpers/general_helpers.R"))
 source(here::here("helpers/rt_helper.R"))
 
+# load administrations summary for slider max/mins
+default_admins <- readRDS("cached_data/administrations.Rds")
+aoi_timepoints <- readRDS("cached_data/aoi_timepoints.Rds")
+DEFAULT_AGE_MAX <- max(default_admins$age, na.rm=T)
+DEFAULT_AGE_MIN <- min(default_admins$age, na.rm=T)
+DEFAULT_WINDOW_MIN <- min(aoi_timepoints$t_norm, na.rm=T)
+DEFAULT_WINDOW_MAX <- max(aoi_timepoints$t_norm, na.rm=T)
+
 DEBUG_LOCAL <- FALSE
 SAMPLING_RATE <- 40
+DEFAULT_DATASET <- "pomper_saffran_2016" 
+# set true once and click "Re-load Data" to re-save cached_data for initial app loading
+CACHE_DATA <- FALSE 
+
 
 # MAIN SHINY SERVER
 server <- function(input, output, session) {
+  
+  # reactive expression invalidates 
+  
+  
   ## ----------------------- DATA -----------------------
   
   # datasets
@@ -27,48 +43,68 @@ server <- function(input, output, session) {
   
   # administration data with the age rebinning happening
   administrations <- reactive({
-    req(input$dataset)
+    if(input$goButton==0) {
+      administrations <- readRDS("cached_data/administrations.Rds")
+    } else {
+      req(input$dataset)
     
-    print("administrations")
+      print("administrations")
   
-    if (DEBUG_LOCAL) {
-      administrations <- read_csv(here::here("demo_data/administrations.csv"), col_types = cols())
-    } else {
-      administrations <- get_administrations(dataset_name = input$dataset_name)
+      if (DEBUG_LOCAL) {
+        administrations <- read_csv(here::here("demo_data/administrations.csv"), col_types = cols())
+      } else {
+        administrations <- get_administrations(dataset_name = input$dataset_name)
+      }
+    
+      # administrations <- administrations %>%
+      #   mutate(age = age / (365.25/12)) # months conversion
+    
+      if (input$age_nbins > 1) {
+        administrations <- administrations %>%
+          mutate(age_binned = cut(age, input$age_nbins))
+      } else {
+        administrations <- administrations %>%
+          mutate(age_binned = "all ages")
+      }
     }
     
-    # administrations <- administrations %>%
-    #   mutate(age = age / (365.25/12)) # months conversion
-    
-    if (input$age_nbins > 1) {
-      administrations %>%
-        mutate(age_binned = cut(age, input$age_nbins))
-    } else {
-      administrations %>%
-        mutate(age_binned = "all ages")
-    }
+    if(CACHE_DATA) saveRDS(administrations, file="cached_data/administrations.Rds")
+    administrations
   })
   
   # aoi data
   aoi_timepoints <- reactive({
-    req(input$dataset)
-    req(input$age_range)
+    # first time? load cached data
+    if(input$goButton==0) {
+      print("loading cached timepoints")
+      aoi_timepoints_data <- readRDS("cached_data/aoi_timepoints.Rds")
+    } else { # if not first time, don't update unless go button pushed
+      isolate({
+      req(input$dataset)
+      req(input$age_range)
     
-    print("aoi_timepoints")
+    
+      print("aoi_timepoints")
 
-    if (DEBUG_LOCAL) {
-      read_csv(here::here("demo_data/aoi_timepoints.csv"), col_types = cols())
-    } else {
+      if (DEBUG_LOCAL) {
+        aoi_timepoints_data <- read_csv(here::here("demo_data/aoi_timepoints.csv"), col_types = cols())
+      } else {
+        tictoc::tic()
+        aoi_timepoints_data <- get_aoi_timepoints(dataset_name = input$dataset, age = input$age_range)
+        tictoc::toc()
+      }
       tictoc::tic()
-      foo <- get_aoi_timepoints(dataset_name = input$dataset, age = input$age_range)
-      tictoc::toc()
+      
+      })
     }
-    tictoc::tic()
-    foo
+    
+    if(CACHE_DATA) saveRDS(aoi_timepoints_data, file="cached_data/aoi_timepoints.Rds")
+    aoi_timepoints_data
   })
   
   # trials
   trials <- reactive({
+    
     req(input$dataset)
     req(input$age_range)
     
@@ -130,23 +166,43 @@ server <- function(input, output, session) {
   # these are just parameters that get used in selectors and plotting
     
   age_min <- reactive({
-    req(administrations())
-    min(administrations()$age, na.rm = TRUE)
+    #if(input$goButton==0) {
+    #  DEFAULT_AGE_MIN
+    #} else {
+        req(administrations())
+        min(administrations()$age, na.rm = TRUE)
+    #}
+    0
   })
   
   age_max <- reactive({
-    req(administrations())
-    max(administrations()$age, na.rm = TRUE)
+    #if(input$goButton==0) {
+    #  DEFAULT_AGE_MAX
+    #} else {
+    #    req(administrations())
+    #    max(administrations()$age, na.rm = TRUE)
+    #}
+    84
   })
    
   window_min <- reactive({
-    req(aoi_timepoints())
-    min(aoi_timepoints()$t_norm)
+    #if(input$goButton==0) {
+    #  DEFAULT_WINDOW_MIN
+    #} else {
+    #    req(aoi_timepoints())
+    #    min(aoi_timepoints()$t_norm)
+    #}
+    0
   })
 
   window_max <- reactive({
-    req(aoi_timepoints())
-    max(aoi_timepoints()$t_norm)
+    #if(input$goButton==0) {
+    #  DEFAULT_WINDOW_MAX
+    #} else {
+    #    req(aoi_timepoints())
+    #    max(aoi_timepoints()$t_norm)
+    #}
+    6850
   })
   
   target_words <- reactive({
@@ -175,7 +231,7 @@ server <- function(input, output, session) {
   output$age_nbins_selector <- renderUI({
     sliderInput("age_nbins",
                 label = "Number of age groups",
-                value = 1, step = 1,
+                value = 2, step = 1,
                 min = 1, max = 6)
   })
   
@@ -220,7 +276,7 @@ server <- function(input, output, session) {
     selectizeInput(inputId = "dataset",
                    label = "Dataset",
                    choices = datasets_list(),
-                   selected = "pomper_saffran_2016",
+                   selected = DEFAULT_DATASET,
                    multiple = TRUE)
   })
   
@@ -229,24 +285,36 @@ server <- function(input, output, session) {
   
   # JOIN TABLES TO AOI DATA - CREATE MAIN DATAFRAME FOR ANALYSIS
   aoi_data_joined <- reactive({
-    req(aoi_timepoints())
-    req(trials())
-    req(trial_types())
-    req(datasets())
-    req(administrations())
-    req(stimuli())
-    req(input$plot_window_range)
+    # first time? load cached data
+    if(input$goButton==0) {
+      # load pre-joined data..
+      print("loading cached aoi_data_joined")
+      aoi_data_joined <- readRDS("cached_data/aoi_data_joined.Rds")
+    } else {
+      isolate({
+      req(aoi_timepoints())
+      req(trials())
+      req(trial_types())
+      req(datasets())
+      req(administrations())
+      req(stimuli())
+      req(input$plot_window_range)
+      
+      print("aoi_data_joined")
+      aoi_data_joined <- aoi_timepoints() %>%
+        right_join(administrations()) %>%
+        right_join(trials()) %>%
+        right_join(trial_types()) %>%
+        right_join(datasets()) %>%
+        mutate(stimulus_id = target_id) %>%
+        right_join(stimuli()) %>%
+        filter(t_norm > input$plot_window_range[1],
+               t_norm < input$plot_window_range[2]) 
+      })
+    }
     
-    print("aoi_data_joined")
-    aoi_timepoints() %>%
-      right_join(administrations()) %>%
-      right_join(trials()) %>%
-      right_join(trial_types()) %>%
-      right_join(datasets()) %>%
-      mutate(stimulus_id = target_id) %>%
-      right_join(stimuli()) %>%
-      filter(t_norm > input$plot_window_range[1],
-             t_norm < input$plot_window_range[2]) 
+    if(CACHE_DATA) saveRDS(aoi_data_joined, file="cached_data/aoi_data_joined.Rds")
+    aoi_data_joined
   })
   
   # COMPUTE REACTION TIMES A LA FERNALD
@@ -254,7 +322,6 @@ server <- function(input, output, session) {
     req(aoi_data_joined())
 
     print("rts")
-    
     rt_data <- aoi_data_joined() %>%
       filter(any(t_norm == 0), # must have data at 0
              t_norm >= 0) %>% # only pass data after 0
@@ -292,7 +359,9 @@ server <- function(input, output, session) {
   
   ## ---------- PROFILE 
   output$profile_plot <- renderPlot({
-    req(aoi_data_joined())
+    input$goButton
+    
+    isolate(req(aoi_data_joined()))
     
     print("profile_plot")
     
@@ -306,25 +375,21 @@ server <- function(input, output, session) {
     
     
     # print(head(means))
+    p <- ggplot(means, 
+                aes(x = t_norm, y = prop_looking)) + 
+      geom_rect(xmin = isolate(input$analysis_window_range[1]),
+                xmax = isolate(input$analysis_window_range[2]),
+                ymin = 0,
+                ymax = 1, fill = "gray", alpha = .1)
     
     if (input$age_facet) {
-      p <- ggplot(means, 
-                  aes(x = t_norm, y = prop_looking)) + 
-        geom_rect(xmin = input$analysis_window_range[1],
-                  xmax = input$analysis_window_range[2],
-                  ymin = 0,
-                  ymax = 1, fill = "gray", alpha = .1) +
+      p <- p +
         geom_line(aes(col = age_binned)) + 
         geom_ribbon(aes(ymin = ci_lower, ymax = ci_upper, 
                         fill = age_binned), alpha = .5) +
         facet_wrap(.~english_stimulus_label) 
     } else {
-      p <- ggplot(means, 
-                  aes(x = t_norm, y = prop_looking)) + 
-        geom_rect(xmin = input$analysis_window_range[1],
-                  xmax = input$analysis_window_range[2],
-                  ymin = 0,
-                  ymax = 1, fill = "gray", alpha = .1) +
+      p <- p +
         geom_line(aes(col = english_stimulus_label)) + 
         geom_ribbon(aes(ymin = ci_lower, ymax = ci_upper, 
                         fill = english_stimulus_label), alpha = .5) +
@@ -344,6 +409,7 @@ server <- function(input, output, session) {
   
   ## ---------- ACCURACY BAR
   output$accuracy_plot <- renderPlot({
+    
     acc_means <- aoi_data_joined() %>%
       # acc_means <- foo %>%
       group_by(subject_id, trial_id, age_binned, english_stimulus_label) %>%
@@ -381,11 +447,12 @@ server <- function(input, output, session) {
   
   ## ---------- ONSET 
   output$onset_plot <- renderPlot({
+    
     req(aoi_data_joined())
     req(rts())
 
     onset_means <- left_join(select(rts(), 
-                                    administration_id, trial_id, rt, shift_type), 
+                                    administration_id, trial_id, rt, shift_type),
                              aoi_data_joined()) %>%
       filter(shift_type != "other", 
              shift_type != "no shift") %>%
@@ -415,6 +482,7 @@ server <- function(input, output, session) {
   
   ## ---------- RT BAR
   output$rt_plot <- renderPlot({
+    
     req(rts())
 
     rt_means <- rts() %>%
@@ -429,7 +497,7 @@ server <- function(input, output, session) {
       p <- ggplot(rt_means,
                   aes(x = age_binned, y = mean, fill = age_binned)) +
         geom_bar(stat="identity") +
-        facet_wrap(~english_stimulus_label) + 
+        facet_wrap(~english_stimulus_label) +
         scale_fill_solarized(name = "Age group")
     } else {
       p <- ggplot(rt_means,
@@ -442,12 +510,13 @@ server <- function(input, output, session) {
       geom_linerange(aes(ymin = ci_lower, ymax = ci_upper)) +
       ylab("Reaction time (msec)") +
       xlab("Age (binned)") +
-      theme_mikabr() 
+      theme_mikabr()
   })
   
   
   ## ---------- RT HISTOGRAM
   output$rt_hist <- renderPlot({
+    
     req(rts())
 
     # Histogram of RTs in peekbank data ----
