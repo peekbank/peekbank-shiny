@@ -1,0 +1,102 @@
+trial_type_id,full_phrase,full_phrase_language,point_of_disambiguation,target_side,condition,lab_trial_id,aoi_region_set_id,dataset_id,distractor_id,target_id,dataset_name
+78,Find the orange one,eng,0,left,color,NA,NA,2,62,54,pomper_saffran_2016
+79,Find the red one,eng,0,right,color,NA,NA,2,63,55,pomper_saffran_2016
+80,Where is the yellow one,eng,0,right,color,NA,NA,2,64,56,pomper_saffran_2016
+81,Find the white one,eng,0,left,color,NA,NA,2,65,57,pomper_saffran_2016
+82,Where is the red one,eng,0,left,color,NA,NA,2,66,58,pomper_saffran_2016
+83,Look at the black one,eng,0,right,color,NA,NA,2,67,59,pomper_saffran_2016
+84,Where is the orange one,eng,0,left,color,NA,NA,2,68,60,pomper_saffran_2016
+85,Look at the brown one,eng,0,right,color,NA,NA,2,69,61,pomper_saffran_2016
+86,Look at the bucket,eng,0,left,target_image,NA,NA,2,110,102,pomper_saffran_2016
+87,Look at the sock,eng,0,left,target_image,NA,NA,2,111,103,pomper_saffran_2016
+88,Where's the hose,eng,0,right,target_image,NA,NA,2,112,104,pomper_saffran_2016
+89,Find the glove,eng,0,right,target_image,NA,NA,2,113,105,pomper_saffran_2016
+90,Find the donut,eng,0,left,target_image,NA,NA,2,114,106,pomper_saffran_2016
+91,Find the bib,eng,0,right,target_image,NA,NA,2,115,107,pomper_saffran_2016
+92,Look at the necklace,eng,0,left,target_image,NA,NA,2,116,108,pomper_saffran_2016
+93,Where's the scissors,eng,0,right,target_image,NA,NA,2,117,109,pomper_saffran_2016
+94,Where's the slide,eng,0,left,target_image,NA,NA,2,94,86,pomper_saffran_2016
+95,Find the knife,eng,0,right,target_image,NA,NA,2,95,87,pomper_saffran_2016
+96,Look at the zipper,eng,0,right,target_image,NA,NA,2,96,88,pomper_saffran_2016
+97,Where's the flag,eng,0,left,target_image,NA,NA,2,97,89,pomper_saffran_2016
+98,Look at the belt,eng,0,left,target_image,NA,NA,2,98,90,pomper_saffran_2016
+99,Look at the tape,eng,0,right,target_image,NA,NA,2,99,91,pomper_saffran_2016
+100,Where's the dress,eng,0,left,target_image,NA,NA,2,100,92,pomper_saffran_2016
+101,Look at the pudding,eng,0,right,target_image,NA,NA,2,101,93,pomper_saffran_2016
+102,Look at the green one,eng,0,left,color,NA,NA,2,78,70,pomper_saffran_2016
+103,Look at the blue one,eng,0,left,color,NA,NA,2,79,71,pomper_saffran_2016
+104,Where is the black one,eng,0,right,color,NA,NA,2,80,72,pomper_saffran_2016
+105,Where is the brown one,eng,0,right,color,NA,NA,2,81,73,pomper_saffran_2016
+106,Find the yellow one,eng,0,left,color,NA,NA,2,82,74,pomper_saffran_2016
+107,Look at the green one,eng,0,right,color,NA,NA,2,83,75,pomper_saffran_2016
+108,Find the white one,eng,0,left,color,NA,NA,2,84,76,pomper_saffran_2016
+109,Where is the blue one,eng,0,right,color,NA,NA,2,85,77,pomper_saffran_2016
+110,Look at the blue one,eng,0,right,color,NA,NA,2,54,62,pomper_saffran_2016
+111,Where is the green one,eng,0,left,color,NA,NA,2,55,63,pomper_saffran_2016
+112,Look at the black one,eng,0,left,color,NA,NA,2,56,64,pomper_saffran_2016
+113,Where is the brown one,eng,0,right,color,NA,NA,2,57,65,pomper_saffran_2016
+114,Look at the green one,eng,0,right,color,NA,NA,2,58,66,pomper_saffran_2016
+115,Find the yellow one,eng,0,left,color,NA,NA,2,59,67,pomper_saffran_2016
+116,Where is the blue one,eng,0,right,color,NA,NA,2,60,68,pomper_saffran_2016
+117,Find the white one,eng,0,left,color,NA,NA,2,61,69,pomper_saffran_2016
+118,Look at the shorts,eng,0,right,target_image,NA,NA,2,102,110,pomper_saffran_2016
+119,Look at the purse,eng,0,right,target_image,NA,NA,2,103,111,pomper_saffran_2016
+120,Look at the shovel,eng,0,left,target_image,NA,NA,2,104,112,pomper_saffran_2016
+121,Find the lamp,eng,0,left,target_image,NA,NA,2,105,113,pomper_saffran_2016
+122,Find the can,eng,0,right,target_image,NA,NA,2,106,114,pomper_saffran_2016
+123,Where's the comb,eng,0,left,target_image,NA,NA,2,107,115,pomper_saffran_2016
+124,Where's the muffin,eng,0,right,target_image,NA,NA,2,108,116,pomper_saffran_2016
+125,Find the plate,eng,0,left,target_image,NA,NA,2,109,117,pomper_saffran_2016
+126,Find the crib,eng,0,right,target_image,NA,NA,2,86,94,pomper_saffran_2016
+127,Where's the boot,eng,0,left,target_image,NA,NA,2,87,95,pomper_saffran_2016
+128,Find the hammer,eng,0,left,target_image,NA,NA,2,88,96,pomper_saffran_2016
+129,Find the ladder,eng,0,right,target_image,NA,NA,2,89,97,pomper_saffran_2016
+130,Where's the slipper,eng,0,right,target_image,NA,NA,2,90,98,pomper_saffran_2016
+131,Where's the puzzle,eng,0,left,target_image,NA,NA,2,91,99,pomper_saffran_2016
+132,Look at the glasses,eng,0,right,target_image,NA,NA,2,92,100,pomper_saffran_2016
+133,Where's the chalk,eng,0,left,target_image,NA,NA,2,93,101,pomper_saffran_2016
+134,Find the red one,eng,0,right,color,NA,NA,2,70,78,pomper_saffran_2016
+135,Where is the orange one,eng,0,right,color,NA,NA,2,71,79,pomper_saffran_2016
+136,Find the yellow one,eng,0,left,color,NA,NA,2,72,80,pomper_saffran_2016
+137,Find the white one,eng,0,left,color,NA,NA,2,73,81,pomper_saffran_2016
+138,Look at the black one,eng,0,right,color,NA,NA,2,74,82,pomper_saffran_2016
+139,Where is the red one,eng,0,left,color,NA,NA,2,75,83,pomper_saffran_2016
+140,Look at the brown one,eng,0,right,color,NA,NA,2,76,84,pomper_saffran_2016
+141,Where is the orange one,eng,0,left,color,NA,NA,2,77,85,pomper_saffran_2016
+142,Where is the blue one,eng,0,left,color,NA,NA,2,79,71,pomper_saffran_2016
+143,Look at the black one,eng,0,right,color,NA,NA,2,80,72,pomper_saffran_2016
+144,Look at the brown one,eng,0,right,color,NA,NA,2,81,73,pomper_saffran_2016
+145,Where is the yellow one,eng,0,left,color,NA,NA,2,82,74,pomper_saffran_2016
+146,Where is the black one,eng,0,right,color,NA,NA,2,67,59,pomper_saffran_2016
+147,Find the red one,eng,0,left,color,NA,NA,2,66,58,pomper_saffran_2016
+148,Look at the blue one,eng,0,right,color,NA,NA,2,60,68,pomper_saffran_2016
+149,Look at the blue one,eng,0,left,color,NA,NA,2,54,62,pomper_saffran_2016
+150,Where is the black one,eng,0,left,color,NA,NA,2,56,64,pomper_saffran_2016
+151,Look at the green one,eng,0,right,color,NA,NA,2,55,63,pomper_saffran_2016
+152,Where's the muffin,eng,0,left,target_image,NA,NA,2,108,116,pomper_saffran_2016
+153,Where's the comb,eng,0,right,target_image,NA,NA,2,107,115,pomper_saffran_2016
+154,Find the lamp,eng,0,right,target_image,NA,NA,2,105,113,pomper_saffran_2016
+155,Look at the shovel,eng,0,right,target_image,NA,NA,2,104,112,pomper_saffran_2016
+156,Find the crib,eng,0,left,target_image,NA,NA,2,86,94,pomper_saffran_2016
+157,Where's the boot,eng,0,right,target_image,NA,NA,2,87,95,pomper_saffran_2016
+158,Look at the brown one,eng,0,left,color,NA,NA,2,76,84,pomper_saffran_2016
+159,Where is the red one,eng,0,right,color,NA,NA,2,75,83,pomper_saffran_2016
+160,Find the orange one,eng,0,left,color,NA,NA,2,77,85,pomper_saffran_2016
+161,Find the white one,eng,0,right,color,NA,NA,2,73,81,pomper_saffran_2016
+162,Where is the yellow one,eng,0,right,color,NA,NA,2,72,80,pomper_saffran_2016
+163,Where is the green one,eng,0,right,color,NA,NA,2,58,66,pomper_saffran_2016
+164,Find the orange one,eng,0,left,color,NA,NA,2,68,60,pomper_saffran_2016
+165,Where is the orange one,eng,0,right,color,NA,NA,2,62,54,pomper_saffran_2016
+166,Find the yellow one,eng,0,right,color,NA,NA,2,64,56,pomper_saffran_2016
+167,Where is the red one,eng,0,left,color,NA,NA,2,63,55,pomper_saffran_2016
+168,Look at the necklace,eng,0,right,target_image,NA,NA,2,116,108,pomper_saffran_2016
+169,Find the bib,eng,0,left,target_image,NA,NA,2,115,107,pomper_saffran_2016
+170,Find the glove,eng,0,left,target_image,NA,NA,2,113,105,pomper_saffran_2016
+171,Where's the hose,eng,0,left,target_image,NA,NA,2,112,104,pomper_saffran_2016
+172,Where's the slide,eng,0,right,target_image,NA,NA,2,94,86,pomper_saffran_2016
+173,Find the knife,eng,0,left,target_image,NA,NA,2,95,87,pomper_saffran_2016
+174,Find the white one,eng,0,right,color,NA,NA,2,84,76,pomper_saffran_2016
+175,Where is the green one,eng,0,left,color,NA,NA,2,83,75,pomper_saffran_2016
+176,Look at the blue one,eng,0,right,color,NA,NA,2,85,77,pomper_saffran_2016
+177,Where is the brown one,eng,0,left,color,NA,NA,2,81,73,pomper_saffran_2016
+178,Look at the black one,eng,0,left,color,NA,NA,2,80,72,pomper_saffran_2016

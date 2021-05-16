@@ -5,14 +5,15 @@ library(peekbankr)
 library(tictoc)
 source(here::here("helpers/general_helpers.R"))
 source(here::here("helpers/rt_helper.R"))
+# renv::deactivate()
 
 # load administrations summary for slider max/mins
 default_admins <- readRDS("cached_data/administrations.Rds")
 aoi_timepoints <- readRDS("cached_data/aoi_timepoints.Rds")
-DEFAULT_AGE_MAX <- max(default_admins$age, na.rm=T)
-DEFAULT_AGE_MIN <- min(default_admins$age, na.rm=T)
-DEFAULT_WINDOW_MIN <- min(aoi_timepoints$t_norm, na.rm=T)
-DEFAULT_WINDOW_MAX <- max(aoi_timepoints$t_norm, na.rm=T)
+DEFAULT_AGE_MAX <- 84 #max(default_admins$age, na.rm=T) # 1430.7 (days?)
+DEFAULT_AGE_MIN <- 0 #min(default_admins$age, na.rm=T) # 1248
+DEFAULT_WINDOW_MIN <- 0 #min(aoi_timepoints$t_norm, na.rm=T) # -990
+DEFAULT_WINDOW_MAX <- 6900 #max(aoi_timepoints$t_norm, na.rm=T) # 6867
 
 DEBUG_LOCAL <- FALSE
 SAMPLING_RATE <- 40
@@ -90,7 +91,7 @@ server <- function(input, output, session) {
         aoi_timepoints_data <- read_csv(here::here("demo_data/aoi_timepoints.csv"), col_types = cols())
       } else {
         tictoc::tic()
-        aoi_timepoints_data <- get_aoi_timepoints(dataset_name = input$dataset, age = input$age_range)
+        aoi_timepoints_data <- get_aoi_timepoints(dataset_name = input$dataset, age = input$age_range) 
         tictoc::toc()
       }
       tictoc::tic()
@@ -166,43 +167,41 @@ server <- function(input, output, session) {
   # these are just parameters that get used in selectors and plotting
     
   age_min <- reactive({
-    #if(input$goButton==0) {
-    #  DEFAULT_AGE_MIN
-    #} else {
-        req(administrations())
-        min(administrations()$age, na.rm = TRUE)
-    #}
-    0
+    if(input$goButton==0) {
+      DEFAULT_AGE_MIN
+    } else {
+      req(administrations())
+      min(administrations()$age, na.rm = TRUE)
+    }
   })
   
   age_max <- reactive({
-    #if(input$goButton==0) {
-    #  DEFAULT_AGE_MAX
-    #} else {
-    #    req(administrations())
-    #    max(administrations()$age, na.rm = TRUE)
-    #}
-    84
+    if(input$goButton==0) {
+      DEFAULT_AGE_MAX
+    } else {
+      req(administrations())
+      max(administrations()$age, na.rm = TRUE)
+    }
   })
    
   window_min <- reactive({
     #if(input$goButton==0) {
     #  DEFAULT_WINDOW_MIN
     #} else {
-    #    req(aoi_timepoints())
-    #    min(aoi_timepoints()$t_norm)
+    #  req(aoi_timepoints())
+    #  min(aoi_timepoints()$t_norm)
     #}
-    0
+    DEFAULT_WINDOW_MIN
   })
 
   window_max <- reactive({
     #if(input$goButton==0) {
     #  DEFAULT_WINDOW_MAX
     #} else {
-    #    req(aoi_timepoints())
-    #    max(aoi_timepoints()$t_norm)
+    #  req(aoi_timepoints())
+    #  max(aoi_timepoints()$t_norm)
     #}
-    6850
+    DEFAULT_WINDOW_MAX
   })
   
   target_words <- reactive({
@@ -220,11 +219,18 @@ server <- function(input, output, session) {
   # SELECTOR FOR AGE
   output$age_range_selector <- renderUI({
     # print("age_range_selector")
+    # GK: doing this makes the age slider reset to defaults when re-load button is pushed
+    #sliderInput("age_range",
+    #            label = "Ages to include (months)",
+    #            value = c(age_min(), age_max()),
+    #            step = 1, 
+    #            min = floor(age_min()), max = ceiling(age_max()))
+    # GK: so instead we use global defaults (0 - 84)
     sliderInput("age_range",
                 label = "Ages to include (months)",
-                value = c(age_min(), age_max()),
+                value = c(DEFAULT_AGE_MIN, DEFAULT_AGE_MAX),
                 step = 1, 
-                min = floor(age_min()), max = ceiling(age_max()))
+                min = DEFAULT_AGE_MIN, max = DEFAULT_AGE_MAX)
   })
   
   # SELECTOR FOR AGE BINNING
@@ -486,14 +492,14 @@ server <- function(input, output, session) {
     req(rts())
 
     rt_means <- rts() %>%
-      filter(shift_type == "D-T") %>%
+      filter(shift_type == "D-T") %>% # shift_type not found?
       group_by(age_binned, english_stimulus_label) %>%
       summarise(mean = mean(rt, na.rm = TRUE),
                 ci_lower = mean + ci.95(rt)[1],
                 ci_upper = mean + ci.95(rt)[2],
                 n = n())
 
-    if (input$age_facet) {
+    if (input$age_facet) { # Warning: Error in if: argument is of length zero
       p <- ggplot(rt_means,
                   aes(x = age_binned, y = mean, fill = age_binned)) +
         geom_bar(stat="identity") +
