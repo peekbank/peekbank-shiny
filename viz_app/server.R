@@ -405,7 +405,7 @@ server <- function(input, output, session) {
     p + 
       geom_hline(yintercept = .5, lty = 2) + 
       geom_vline(xintercept = 0, lty = 2) +
-      ylab("Proportion Target Looking") +
+      ylab("Proportion Shifting from Onset Image") +
       xlab("Time (msec)") +
       theme_classic() +
       scale_color_solarized() +
