@@ -21,8 +21,8 @@ ui <- fluidPage(
       uiOutput("age_nbins_selector"),
       uiOutput("age_facet_selector"),
       uiOutput("word_selector"),
-      uiOutput("plot_selector"),
-      uiOutput("window_selector"),
+      uiOutput("plotting_window_selector"),
+      uiOutput("analysis_window_selector"),
       uiOutput("dataset_selector"),
       br(),
       # Note that uiOutputs are necessary for bookmark to work

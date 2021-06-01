@@ -12,8 +12,10 @@ default_admins <- readRDS("cached_data/administrations.Rds")
 aoi_timepoints <- readRDS("cached_data/aoi_timepoints.Rds")
 DEFAULT_AGE_MAX <- 84 #max(default_admins$age, na.rm=T) # 1430.7 (days?)
 DEFAULT_AGE_MIN <- 0 #min(default_admins$age, na.rm=T) # 1248
-DEFAULT_WINDOW_MIN <- 0 #min(aoi_timepoints$t_norm, na.rm=T) # -990
-DEFAULT_WINDOW_MAX <- 6900 #max(aoi_timepoints$t_norm, na.rm=T) # 6867
+DEFAULT_PLOT_WINDOW_MIN <- -1000 #min(aoi_timepoints$t_norm, na.rm=T) # -990
+DEFAULT_PLOT_WINDOW_MAX <- 4000 #max(aoi_timepoints$t_norm, na.rm=T) # 6867
+DEFAULT_ANALYSIS_WINDOW_MIN <- 0 #min(aoi_timepoints$t_norm, na.rm=T) # -990
+DEFAULT_ANALYSIS_WINDOW_MAX <- 4000 #max(aoi_timepoints$t_norm, na.rm=T) # 6867
 
 DEBUG_LOCAL <- FALSE
 SAMPLING_RATE <- 40
@@ -83,7 +85,6 @@ server <- function(input, output, session) {
       isolate({
       req(input$dataset)
       req(input$age_range)
-    
     
       print("aoi_timepoints")
 
@@ -184,24 +185,44 @@ server <- function(input, output, session) {
     }
   })
    
-  window_min <- reactive({
+  plot_window_min <- reactive({
     #if(input$goButton==0) {
     #  DEFAULT_WINDOW_MIN
     #} else {
     #  req(aoi_timepoints())
     #  min(aoi_timepoints()$t_norm)
     #}
-    DEFAULT_WINDOW_MIN
+    DEFAULT_PLOT_WINDOW_MIN
   })
 
-  window_max <- reactive({
+  plot_window_max <- reactive({
     #if(input$goButton==0) {
     #  DEFAULT_WINDOW_MAX
     #} else {
     #  req(aoi_timepoints())
     #  max(aoi_timepoints()$t_norm)
     #}
-    DEFAULT_WINDOW_MAX
+    DEFAULT_PLOT_WINDOW_MAX
+  })
+  
+  analysis_window_min <- reactive({
+    #if(input$goButton==0) {
+    #  DEFAULT_WINDOW_MIN
+    #} else {
+    #  req(aoi_timepoints())
+    #  min(aoi_timepoints()$t_norm)
+    #}
+    DEFAULT_ANALYSIS_WINDOW_MIN
+  })
+  
+  analysis_window_max <- reactive({
+    #if(input$goButton==0) {
+    #  DEFAULT_WINDOW_MAX
+    #} else {
+    #  req(aoi_timepoints())
+    #  max(aoi_timepoints()$t_norm)
+    #}
+    DEFAULT_ANALYSIS_WINDOW_MAX
   })
   
   target_words <- reactive({
@@ -258,23 +279,23 @@ server <- function(input, output, session) {
   })
   
   # SELECTORS FOR WINDOW
-  output$plot_selector <- renderUI({
+  output$plotting_window_selector <- renderUI({
     sliderInput("plot_window_range",
-                label = "Plotting Window",
+                label = "Plotting Window (msec)",
                 value = c(-500, 4000),
                 step = 100, 
-                min = window_min(), 
-                max = window_max())
+                min = plot_window_min(), 
+                max = plot_window_max())
   })
   
   # SELECTOR FOR ANALYSIS WINDOW
-  output$window_selector <- renderUI({
+  output$analysis_window_selector <- renderUI({
     sliderInput("analysis_window_range",
-                label = "Analysis Window",
+                label = "Analysis Window  (msec)",
                 value = c(250, 2250),
                 step = 100, 
-                min = 0, 
-                max = window_max())
+                min = analysis_window_min(), 
+                max = analysis_window_max())
   })
   
   # SELECTOR FOR DATASET
@@ -291,6 +312,15 @@ server <- function(input, output, session) {
   
   # JOIN TABLES TO AOI DATA - CREATE MAIN DATAFRAME FOR ANALYSIS
   aoi_data_joined <- reactive({
+    req(input$age_facet)
+    req(input$plot_window_range)
+    req(aoi_timepoints())
+    req(trials())
+    req(trial_types())
+    req(datasets())
+    req(administrations())
+    req(stimuli())
+    
     # first time? load cached data
     if(input$goButton==0) {
       # load pre-joined data..
@@ -298,24 +328,17 @@ server <- function(input, output, session) {
       aoi_data_joined <- readRDS("cached_data/aoi_data_joined.Rds")
     } else {
       isolate({
-      req(aoi_timepoints())
-      req(trials())
-      req(trial_types())
-      req(datasets())
-      req(administrations())
-      req(stimuli())
-      req(input$plot_window_range)
-      
-      print("aoi_data_joined")
-      aoi_data_joined <- aoi_timepoints() %>%
-        right_join(administrations()) %>%
-        right_join(trials()) %>%
-        right_join(trial_types()) %>%
-        right_join(datasets()) %>%
-        mutate(stimulus_id = target_id) %>%
-        right_join(stimuli()) %>%
-        filter(t_norm > input$plot_window_range[1],
-               t_norm < input$plot_window_range[2]) 
+        
+        print("aoi_data_joined")
+        aoi_data_joined <- aoi_timepoints() %>%
+          right_join(administrations()) %>%
+          right_join(trials()) %>%
+          right_join(trial_types()) %>%
+          right_join(datasets()) %>%
+          mutate(stimulus_id = target_id) %>%
+          right_join(stimuli()) %>%
+          filter(t_norm > input$plot_window_range[1],
+                 t_norm < input$plot_window_range[2]) 
       })
     }
     
@@ -488,7 +511,6 @@ server <- function(input, output, session) {
   
   ## ---------- RT BAR
   output$rt_plot <- renderPlot({
-    
     req(rts())
 
     rt_means <- rts() %>%
