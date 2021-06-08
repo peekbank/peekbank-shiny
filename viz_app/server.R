@@ -21,7 +21,7 @@ DEBUG_LOCAL <- FALSE
 SAMPLING_RATE <- 40
 DEFAULT_DATASET <- "pomper_saffran_2016" 
 # set true once and click "Re-load Data" to re-save cached_data for initial app loading
-CACHE_DATA <- FALSE 
+# CACHE_DATA <- TRUE 
 
 
 # MAIN SHINY SERVER
@@ -71,7 +71,7 @@ server <- function(input, output, session) {
       }
     }
     
-    if(CACHE_DATA) saveRDS(administrations, file="cached_data/administrations.Rds")
+    # if(CACHE_DATA) saveRDS(administrations, file="cached_data/administrations.Rds")
     administrations
   })
   
@@ -100,7 +100,7 @@ server <- function(input, output, session) {
       })
     }
     
-    if(CACHE_DATA) saveRDS(aoi_timepoints_data, file="cached_data/aoi_timepoints.Rds")
+    # if(CACHE_DATA) saveRDS(aoi_timepoints_data, file="cached_data/aoi_timepoints.Rds")
     aoi_timepoints_data
   })
   
@@ -242,7 +242,7 @@ server <- function(input, output, session) {
     # print("age_range_selector")
     # GK: doing this makes the age slider reset to defaults when re-load button is pushed
     #sliderInput("age_range",
-    #            label = "Ages to include (months)",
+    # s           label = "Ages to include (months)",
     #            value = c(age_min(), age_max()),
     #            step = 1, 
     #            min = floor(age_min()), max = ceiling(age_max()))
@@ -281,7 +281,7 @@ server <- function(input, output, session) {
   # SELECTORS FOR WINDOW
   output$plotting_window_selector <- renderUI({
     sliderInput("plot_window_range",
-                label = "Plotting Window (msec)",
+                label = "Plotting window for profile plot (msec)",
                 value = c(-500, 4000),
                 step = 100, 
                 min = plot_window_min(), 
@@ -291,7 +291,7 @@ server <- function(input, output, session) {
   # SELECTOR FOR ANALYSIS WINDOW
   output$analysis_window_selector <- renderUI({
     sliderInput("analysis_window_range",
-                label = "Analysis Window  (msec)",
+                label = "Analysis window for bar graphs (msec)",
                 value = c(250, 2250),
                 step = 100, 
                 min = analysis_window_min(), 
@@ -314,12 +314,12 @@ server <- function(input, output, session) {
   aoi_data_joined <- reactive({
     req(input$age_facet)
     req(input$plot_window_range)
-    req(aoi_timepoints())
-    req(trials())
-    req(trial_types())
-    req(datasets())
-    req(administrations())
-    req(stimuli())
+    # req(aoi_timepoints())
+    # req(trials())
+    # req(trial_types())
+    # req(datasets())
+    # req(administrations())
+    # req(stimuli())
     
     # first time? load cached data
     if(input$goButton==0) {
@@ -339,10 +339,11 @@ server <- function(input, output, session) {
           right_join(stimuli()) %>%
           filter(t_norm > input$plot_window_range[1],
                  t_norm < input$plot_window_range[2]) 
+        print(unique(aoi_data_joined$age_binned))
       })
     }
     
-    if(CACHE_DATA) saveRDS(aoi_data_joined, file="cached_data/aoi_data_joined.Rds")
+    # if(CACHE_DATA) saveRDS(aoi_data_joined, file="cached_data/aoi_data_joined.Rds")
     aoi_data_joined
   })
   
@@ -388,9 +389,7 @@ server <- function(input, output, session) {
   
   ## ---------- PROFILE 
   output$profile_plot <- renderPlot({
-    input$goButton
-    
-    isolate(req(aoi_data_joined()))
+    req(aoi_data_joined())
     
     print("profile_plot")
     

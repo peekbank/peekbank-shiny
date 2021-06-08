@@ -14,9 +14,6 @@ ui <- fluidPage(
   
   sidebarLayout(
     sidebarPanel(
-      actionButton("goButton", "Re-load Data"), 
-      br(),
-      p("Click to re-load data after changing parameters."),
       uiOutput("age_range_selector"),
       uiOutput("age_nbins_selector"),
       uiOutput("age_facet_selector"),
@@ -25,9 +22,13 @@ ui <- fluidPage(
       uiOutput("analysis_window_selector"),
       uiOutput("dataset_selector"),
       br(),
+      actionButton("goButton", "Re-load Data"), 
+      br(),
+      p("Click to re-load data after changing parameters."),
+      br(),
       # Note that uiOutputs are necessary for bookmark to work
       bookmarkButton(label = "Share Analysis"),
-      br(), br()
+      br()
       # uiOutput("db_version_number")
     ),
     
