@@ -21,7 +21,7 @@ DEBUG_LOCAL <- FALSE
 SAMPLING_RATE <- 40
 DEFAULT_DATASET <- "pomper_saffran_2016" 
 # set true once and click "Re-load Data" to re-save cached_data for initial app loading
-# CACHE_DATA <- TRUE 
+CACHE_DATA <- FALSE
 
 
 # MAIN SHINY SERVER
@@ -46,61 +46,50 @@ server <- function(input, output, session) {
   
   # administration data with the age rebinning happening
   administrations <- reactive({
-    if(input$goButton==0) {
-      administrations <- readRDS("cached_data/administrations.Rds")
-    } else {
+    if(input$goButton) {
       req(input$dataset)
-    
+      
       print("administrations")
-  
+      
       if (DEBUG_LOCAL) {
         administrations <- read_csv(here::here("demo_data/administrations.csv"), col_types = cols())
       } else {
-        administrations <- get_administrations(dataset_name = input$dataset_name)
-      }
-    
-      # administrations <- administrations %>%
-      #   mutate(age = age / (365.25/12)) # months conversion
-    
-      if (input$age_nbins > 1) {
-        administrations <- administrations %>%
-          mutate(age_binned = cut(age, input$age_nbins))
-      } else {
-        administrations <- administrations %>%
-          mutate(age_binned = "all ages")
+        administrations <- get_administrations(dataset_name = input$dataset)
       }
     }
     
-    # if(CACHE_DATA) saveRDS(administrations, file="cached_data/administrations.Rds")
+    # print(input$age_nbins)
+    if (input$age_nbins > 1) {
+      administrations <- administrations %>%
+        mutate(age_binned = cut(age, input$age_nbins))
+    } else {
+      administrations <- administrations %>%
+        mutate(age_binned = "all ages")
+    }
+    
     administrations
   })
   
   # aoi data
   aoi_timepoints <- reactive({
     # first time? load cached data
-    if(input$goButton==0) {
-      print("loading cached timepoints")
-      aoi_timepoints_data <- readRDS("cached_data/aoi_timepoints.Rds")
-    } else { # if not first time, don't update unless go button pushed
-      isolate({
-      req(input$dataset)
-      req(input$age_range)
-    
-      print("aoi_timepoints")
-
-      if (DEBUG_LOCAL) {
-        aoi_timepoints_data <- read_csv(here::here("demo_data/aoi_timepoints.csv"), col_types = cols())
-      } else {
+    if(input$goButton) {
+        req(input$dataset)
+        req(input$age_range)
+        
+        print("aoi_timepoints")
+        
+        if (DEBUG_LOCAL) {
+          aoi_timepoints_data <- read_csv(here::here("demo_data/aoi_timepoints.csv"), col_types = cols())
+        } else {
+          tictoc::tic()
+          aoi_timepoints_data <- get_aoi_timepoints(dataset_name = input$dataset, age = input$age_range) 
+          tictoc::toc()
+        }
         tictoc::tic()
-        aoi_timepoints_data <- get_aoi_timepoints(dataset_name = input$dataset, age = input$age_range) 
-        tictoc::toc()
-      }
-      tictoc::tic()
-      
-      })
+
     }
     
-    # if(CACHE_DATA) saveRDS(aoi_timepoints_data, file="cached_data/aoi_timepoints.Rds")
     aoi_timepoints_data
   })
   
@@ -152,7 +141,7 @@ server <- function(input, output, session) {
   stimuli <- reactive({
     req(dataset_stimuli())
     req(input$word)
-
+    
     print("stimuli")
     
     if (input$word == "All") {
@@ -166,7 +155,7 @@ server <- function(input, output, session) {
   
   # ---------------- REACTIVE PARAMETERS FOR SELECTORS -----------------
   # these are just parameters that get used in selectors and plotting
-    
+  
   age_min <- reactive({
     if(input$goButton==0) {
       DEFAULT_AGE_MIN
@@ -184,7 +173,7 @@ server <- function(input, output, session) {
       max(administrations()$age, na.rm = TRUE)
     }
   })
-   
+  
   plot_window_min <- reactive({
     #if(input$goButton==0) {
     #  DEFAULT_WINDOW_MIN
@@ -194,7 +183,7 @@ server <- function(input, output, session) {
     #}
     DEFAULT_PLOT_WINDOW_MIN
   })
-
+  
   plot_window_max <- reactive({
     #if(input$goButton==0) {
     #  DEFAULT_WINDOW_MAX
@@ -339,18 +328,17 @@ server <- function(input, output, session) {
           right_join(stimuli()) %>%
           filter(t_norm > input$plot_window_range[1],
                  t_norm < input$plot_window_range[2]) 
-        print(unique(aoi_data_joined$age_binned))
       })
     }
     
-    # if(CACHE_DATA) saveRDS(aoi_data_joined, file="cached_data/aoi_data_joined.Rds")
+    if(CACHE_DATA) saveRDS(aoi_data_joined, file="cached_data/aoi_data_joined.Rds")
     aoi_data_joined
   })
   
   # COMPUTE REACTION TIMES A LA FERNALD
   rts <- reactive({
     req(aoi_data_joined())
-
+    
     print("rts")
     rt_data <- aoi_data_joined() %>%
       filter(any(t_norm == 0), # must have data at 0
@@ -449,7 +437,7 @@ server <- function(input, output, session) {
                 ci_lower = mean + ci.95(prop_looking)[1],
                 ci_upper = mean + ci.95(prop_looking)[2],
                 n = n())
-
+    
     if (input$age_facet) {
       p <- ggplot(acc_means,
                   aes(x = age_binned, y = mean, fill = age_binned)) +
@@ -478,7 +466,7 @@ server <- function(input, output, session) {
     
     req(aoi_data_joined())
     req(rts())
-
+    
     onset_means <- left_join(select(rts(), 
                                     administration_id, trial_id, rt, shift_type),
                              aoi_data_joined()) %>%
@@ -489,7 +477,7 @@ server <- function(input, output, session) {
                                            aoi == "distractor" & aoi != "other",
                                            aoi == "target" & aoi != "other"), 
                                     na.rm = TRUE))
-
+    
     print("onset means")
     
     ggplot(onset_means,
@@ -511,7 +499,7 @@ server <- function(input, output, session) {
   ## ---------- RT BAR
   output$rt_plot <- renderPlot({
     req(rts())
-
+    
     rt_means <- rts() %>%
       filter(shift_type == "D-T") %>% # shift_type not found?
       group_by(age_binned, english_stimulus_label) %>%
@@ -519,7 +507,7 @@ server <- function(input, output, session) {
                 ci_lower = mean + ci.95(rt)[1],
                 ci_upper = mean + ci.95(rt)[2],
                 n = n())
-
+    
     if (input$age_facet) { # Warning: Error in if: argument is of length zero
       p <- ggplot(rt_means,
                   aes(x = age_binned, y = mean, fill = age_binned)) +
@@ -545,7 +533,7 @@ server <- function(input, output, session) {
   output$rt_hist <- renderPlot({
     
     req(rts())
-
+    
     # Histogram of RTs in peekbank data ----
     # with requested number of bins and RT filters
     if (input$age_facet) {
@@ -567,7 +555,7 @@ server <- function(input, output, session) {
   ## ---------- AGE BAR
   output$age_hist <- renderPlot({
     req(subinfo())
-
+    
     subinfo() %>%
       ggplot(aes(x = age, fill = lab_dataset_id)) +
       geom_histogram(binwidth = 3) +
@@ -576,4 +564,5 @@ server <- function(input, output, session) {
       xlab("Age (months)")
   })
   
-}
+  }
+  
