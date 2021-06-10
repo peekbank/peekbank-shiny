@@ -221,7 +221,7 @@ server <- function(input, output, session) {
   
   datasets_list <- reactive({
     req(datasets())
-    c("All", unique(datasets()$dataset_name))
+    unique(datasets()$dataset_name)
   })
   
   ## ----------------------- SELECTORS -----------------------
@@ -280,7 +280,7 @@ server <- function(input, output, session) {
   # SELECTOR FOR ANALYSIS WINDOW
   output$analysis_window_selector <- renderUI({
     sliderInput("analysis_window_range",
-                label = "Analysis window for bar graphs (msec)",
+                label = "Analysis window for accuracy plot (msec)",
                 value = c(250, 2250),
                 step = 100, 
                 min = analysis_window_min(), 
@@ -301,9 +301,7 @@ server <- function(input, output, session) {
   
   # JOIN TABLES TO AOI DATA - CREATE MAIN DATAFRAME FOR ANALYSIS
   aoi_data_joined <- reactive({
-    # req(input$age_facet)
-    req(input$plot_window_range)
-
+    
     # first time? load cached data
     if(input$goButton==0) {
       # load pre-joined data..
@@ -319,9 +317,7 @@ server <- function(input, output, session) {
           right_join(trial_types()) %>%
           right_join(datasets()) %>%
           mutate(stimulus_id = target_id) %>%
-          right_join(stimuli()) %>%
-          filter(t_norm > input$plot_window_range[1],
-                 t_norm < input$plot_window_range[2]) 
+          right_join(stimuli()) 
       })
     }
     
@@ -372,11 +368,15 @@ server <- function(input, output, session) {
   ## ---------- PROFILE 
   output$profile_plot <- renderPlot({
     req(aoi_data_joined())
+    req(input$plot_window_range)
+    # req(input$age_facet)
     
     print("profile_plot")
     
     means <- aoi_data_joined() %>%
       group_by(t_norm, age_binned, english_stimulus_label) %>%
+      filter(t_norm > input$plot_window_range[1], 
+             t_norm < input$plot_window_range[2]) %>%
       summarise(n = sum(!is.na(aoi)), 
                 p = sum(aoi == "target", na.rm = TRUE),
                 prop_looking = mean(aoi == "target", na.rm = TRUE), 
@@ -466,6 +466,8 @@ server <- function(input, output, session) {
                              aoi_data_joined()) %>%
       filter(shift_type != "other", 
              shift_type != "no shift") %>%
+      filter(t_norm > input$plot_window_range[1],
+             t_norm < input$plot_window_range[2]) %>%
       group_by(t_norm, shift_type, age_binned, english_stimulus_label) %>%
       summarise(prop_looking = mean(ifelse(shift_type == "T-D", 
                                            aoi == "distractor" & aoi != "other",
@@ -493,6 +495,8 @@ server <- function(input, output, session) {
   ## ---------- RT BAR
   output$rt_plot <- renderPlot({
     req(rts())
+    req(input$plot_window_range)
+    # req(input$age_facet)
     
     rt_means <- rts() %>%
       filter(shift_type == "D-T") %>% # shift_type not found?
@@ -527,8 +531,6 @@ server <- function(input, output, session) {
   output$rt_hist <- renderPlot({
     req(rts())
     
-    # Histogram of RTs in peekbank data ----
-    # with requested number of bins and RT filters
     rts() %>%
       ggplot(aes(x = rt, fill = age_binned)) +
       geom_histogram(alpha = 0.4,
