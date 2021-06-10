@@ -144,7 +144,7 @@ server <- function(input, output, session) {
     
     print("stimuli")
     
-    if (input$word == "All") {
+    if (any("All" %in% input$word)) {
       dataset_stimuli() %>%
         mutate(english_stimulus_label = "All")
     } else {
@@ -254,7 +254,7 @@ server <- function(input, output, session) {
   # SWITCH FOR AGE DISPLAY
   output$age_facet_selector <- renderUI({
     prettySwitch("age_facet",
-                 label = "Age plotted as colors",
+                 label = "Plot age as color (vs. age as facet)",
                  value = TRUE)
   })
   
@@ -301,15 +301,9 @@ server <- function(input, output, session) {
   
   # JOIN TABLES TO AOI DATA - CREATE MAIN DATAFRAME FOR ANALYSIS
   aoi_data_joined <- reactive({
-    req(input$age_facet)
+    # req(input$age_facet)
     req(input$plot_window_range)
-    # req(aoi_timepoints())
-    # req(trials())
-    # req(trial_types())
-    # req(datasets())
-    # req(administrations())
-    # req(stimuli())
-    
+
     # first time? load cached data
     if(input$goButton==0) {
       # load pre-joined data..
@@ -508,7 +502,7 @@ server <- function(input, output, session) {
                 ci_upper = mean + ci.95(rt)[2],
                 n = n())
     
-    if (input$age_facet) { # Warning: Error in if: argument is of length zero
+    if (input$age_facet) { 
       p <- ggplot(rt_means,
                   aes(x = age_binned, y = mean, fill = age_binned)) +
         geom_bar(stat="identity") +
@@ -531,20 +525,13 @@ server <- function(input, output, session) {
   
   ## ---------- RT HISTOGRAM
   output$rt_hist <- renderPlot({
-    
     req(rts())
     
     # Histogram of RTs in peekbank data ----
     # with requested number of bins and RT filters
-    if (input$age_facet) {
-      p <- rts() %>%
-        ggplot(aes(x = rt, color = age_binned))
-    } else {
-      p <- ggplot(rts(),
-                  aes(x = rt))
-    }
-    p +
-      geom_histogram(fill = "white", alpha = 0.4,
+    rts() %>%
+      ggplot(aes(x = rt, fill = age_binned)) +
+      geom_histogram(alpha = 0.4,
                      position = "identity", binwidth = 200) +
       labs(x = "RT (msec)", y = "Count") +
       theme_mikabr() +
