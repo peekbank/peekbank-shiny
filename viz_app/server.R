@@ -377,9 +377,9 @@ server <- function(input, output, session) {
       group_by(t_norm, age_binned, english_stimulus_label) %>%
       filter(t_norm > input$plot_window_range[1], 
              t_norm < input$plot_window_range[2]) %>%
-      summarise(n = sum(!is.na(aoi)), 
+      summarise(n = sum(aoi %in% c("target", "distractor"), na.rm=TRUE), # don't include 'other' / 'missing' / etc
                 p = sum(aoi == "target", na.rm = TRUE),
-                prop_looking = mean(aoi == "target", na.rm = TRUE), 
+                prop_looking = p / n,
                 ci_lower = binom::binom.confint(p, n, method = "bayes")$lower,
                 ci_upper = binom::binom.confint(p, n, method = "bayes")$upper) 
     
