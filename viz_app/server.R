@@ -27,9 +27,6 @@ CACHE_DATA <- FALSE
 # MAIN SHINY SERVER
 server <- function(input, output, session) {
   
-  # reactive expression invalidates 
-  
-  
   ## ----------------------- DATA -----------------------
   
   # datasets

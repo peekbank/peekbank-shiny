@@ -1,6 +1,7 @@
 library(shinyBS)
 library(shinythemes)
 library(shinyWidgets)
+library(shinycssloaders)
 
 ui <- fluidPage(
   theme = shinytheme("spacelab"),
@@ -36,28 +37,34 @@ ui <- fluidPage(
                  ".shiny-output-error:before { visibility: hidden; }"),
       tabsetPanel(selected = "Profile", 
                   tabPanel("Profile",
-                           plotOutput("profile_plot")
+                           plotOutput("profile_plot") %>%
+                             shinycssloaders::withSpinner(hide.ui = FALSE)
                   ),
                   tabPanel("Accuracy",
-                           plotOutput("accuracy_plot")
+                           plotOutput("accuracy_plot") %>%
+                             shinycssloaders::withSpinner(hide.ui = FALSE)
                   )
       ),
       tabsetPanel(selected = "Reaction Time", 
                   tabPanel("Reaction Time",
-                           plotOutput("rt_plot")
+                           plotOutput("rt_plot") %>%
+                             shinycssloaders::withSpinner(hide.ui = FALSE)
                   ),
                   tabPanel("Onset",
-                           plotOutput("onset_plot")
+                           plotOutput("onset_plot") %>%
+                             shinycssloaders::withSpinner(hide.ui = FALSE)
                   ),
                   tabPanel("RT Histogram",
-                           plotOutput("rt_hist")
+                           plotOutput("rt_hist") %>%
+                             shinycssloaders::withSpinner(hide.ui = FALSE)
                   )
       ),
       tabsetPanel(selected = "Age Histogram", 
                   tabPanel("Age Histogram",
-                           plotOutput("age_hist")
+                           plotOutput("age_hist") %>%
+                             shinycssloaders::withSpinner(hide.ui = FALSE)
                   )
       )
-    )
+    ) 
   )
 )
