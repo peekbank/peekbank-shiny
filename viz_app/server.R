@@ -409,7 +409,7 @@ server <- function(input, output, session) {
     p + 
       geom_hline(yintercept = .5, lty = 2) + 
       geom_vline(xintercept = 0, lty = 2) +
-      ylab("Proportion Shifting from Onset Image") +
+      ylab("Proportion Target Looking") +
       xlab("Time (msec)") +
       theme_classic() +
       scale_color_solarized() +
@@ -483,7 +483,7 @@ server <- function(input, output, session) {
       geom_hline(yintercept = .5, lty = 2) +
       geom_vline(xintercept = 0, lty = 2) +
       xlim(0, max(onset_means$t_norm)) +
-      ylab("Proportion Target Looking") +
+      ylab("Proportion Shifting from Onset Image") +
       xlab("Time (msec)") +
       theme_mikabr() +
       scale_color_solarized() +
