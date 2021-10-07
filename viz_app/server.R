@@ -45,6 +45,7 @@ server <- function(input, output, session) {
   administrations <- reactive({
     if(input$goButton) {
       req(input$dataset)
+      req(input$age_range)
       
       print("administrations")
       
@@ -58,9 +59,13 @@ server <- function(input, output, session) {
     # print(input$age_nbins)
     if (input$age_nbins > 1) {
       administrations <- administrations %>%
+        filter(age >= input$age_range[1],
+               age <= input$age_range[2]) %>%
         mutate(age_binned = cut(age, input$age_nbins))
     } else {
       administrations <- administrations %>%
+        filter(age >= input$age_range[1],
+               age <= input$age_range[2]) %>%
         mutate(age_binned = "all ages")
     }
     

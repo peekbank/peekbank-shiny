@@ -1,3 +1,4 @@
+library(tidyverse)
 library(shinyBS)
 library(shinythemes)
 library(shinyWidgets)
