@@ -427,7 +427,10 @@ server <- function(input, output, session) {
       group_by(subject_id, trial_id, age_binned, english_stimulus_label) %>%
       filter(t_norm >= input$analysis_window_range[1],
              t_norm <= input$analysis_window_range[2]) %>%
-      summarise(prop_looking = mean(aoi == "target", na.rm = TRUE)) %>%
+      summarise(
+        total_looks = sum(aoi %in% c("target", "distractor"), na.rm=TRUE), # don't include 'other' / 'missing' / etc
+        target_looks = sum(aoi == "target", na.rm = TRUE),
+        prop_looking = target_looks / total_looks) %>%
       group_by(age_binned, english_stimulus_label) %>%
       summarise(mean = mean(prop_looking, na.rm = TRUE),
                 ci_lower = mean + ci.95(prop_looking)[1],
