@@ -9,7 +9,7 @@ ui <- fluidPage(
   
   bsCollapse(id = "doc", open = "title",
              bsCollapsePanel(title = h3("PeekBank Visualization Tool"),
-                             includeMarkdown("../docs/peekbank.md"),
+                             includeMarkdown("docs/peekbank.md"),
                              value = "title",
                              style = "default")
   ),

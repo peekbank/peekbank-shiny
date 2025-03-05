@@ -3,9 +3,9 @@ library(ggthemes)
 library(langcog)
 library(peekbankr)
 library(tictoc)
-source(here::here("helpers/general_helpers.R"))
-source(here::here("helpers/rt_helper.R"))
-# renv::deactivate()
+library(here)
+source("helpers/general_helpers.R")
+source("helpers/rt_helper.R")
 
 # load administrations summary for slider max/mins
 default_admins <- readRDS("cached_data/administrations.Rds")
@@ -35,7 +35,7 @@ server <- function(input, output, session) {
     print("datasets") 
     
     if (DEBUG_LOCAL) {
-      read_csv(here::here("demo_data/datasets.csv"), col_types = cols())
+      read_csv(here("demo_data/datasets.csv"), col_types = cols())
     } else {
       get_datasets()
     }
@@ -50,7 +50,7 @@ server <- function(input, output, session) {
       print("administrations")
       
       if (DEBUG_LOCAL) {
-        administrations <- read_csv(here::here("demo_data/administrations.csv"), col_types = cols())
+        administrations <- read_csv(here("demo_data/administrations.csv"), col_types = cols())
       } else {
         administrations <- get_administrations(dataset_name = input$dataset)
       }
@@ -82,7 +82,7 @@ server <- function(input, output, session) {
         print("aoi_timepoints")
         
         if (DEBUG_LOCAL) {
-          aoi_timepoints_data <- read_csv(here::here("demo_data/aoi_timepoints.csv"), col_types = cols())
+          aoi_timepoints_data <- read_csv(here("demo_data/aoi_timepoints.csv"), col_types = cols())
         } else {
           tictoc::tic()
           aoi_timepoints_data <- get_aoi_timepoints(dataset_name = input$dataset, age = input$age_range) 
@@ -104,7 +104,7 @@ server <- function(input, output, session) {
     print("trials")
     
     if (DEBUG_LOCAL) {
-      read_csv(here::here("demo_data/trials.csv"), col_types = cols())
+      read_csv(here("demo_data/trials.csv"), col_types = cols())
     } else {
       get_trials(dataset_name = input$dataset)
     }
@@ -118,7 +118,7 @@ server <- function(input, output, session) {
     print("trial types")
     
     if (DEBUG_LOCAL) {
-      read_csv(here::here("demo_data/trial_types.csv"), col_types = cols())
+      read_csv(here("demo_data/trial_types.csv"), col_types = cols())
     } else {
       get_trial_types(dataset_name = input$dataset)
     }
@@ -133,7 +133,7 @@ server <- function(input, output, session) {
     print("dataset stimuli")
     
     if (DEBUG_LOCAL) {
-      stimuli <- read_csv(here::here("demo_data/stimuli.csv"), col_types = cols())
+      stimuli <- read_csv(here("demo_data/stimuli.csv"), col_types = cols())
     } else {
       stimuli <- get_stimuli(dataset_name = input$dataset)
     }
