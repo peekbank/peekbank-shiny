@@ -1,0 +1,12 @@
+name: peekbank-shiny2
+title: peekbank-shiny
+username: mikabr
+account: mikabr
+server: peekbank-connect.com
+hostUrl: https://peekbank-connect.com/__api__
+appId: 2
+bundleId: 15
+url: https://peekbank-connect.com/viz/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
